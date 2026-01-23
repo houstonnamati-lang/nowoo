@@ -1,0 +1,191 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import ms from "ms";
+import { useEffect, useState } from "react";
+import { create } from "zustand";
+import { createJSONStorage, persist, subscribeWithSelector } from "zustand/middleware";
+import { patternPresets } from "@breathly/assets/pattern-presets";
+import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
+import { GuidedBreathingMode } from "@breathly/types/guided-breathing-mode";
+import { PatternPreset } from "@breathly/types/pattern-preset";
+
+interface SettingsStore {
+  customPatternEnabled: boolean;
+  setCustomPatternEnabled: (enabled: boolean) => unknown;
+  customPatternSteps: [number, number, number, number];
+  setCustomPatternStep: (stepIndex: number, stepValue: number) => unknown;
+  selectedPatternPresetId: string;
+  setSelectedPatternPresetId: (patternPresetId: string) => unknown;
+  guidedBreathingVoice: GuidedBreathingMode;
+  setGuidedBreathingVoice: (guidedBreathingVoice: GuidedBreathingMode) => unknown;
+  frequencyTone: FrequencyToneMode;
+  setFrequencyTone: (frequencyTone: FrequencyToneMode) => unknown;
+  timeLimit: number;
+  increaseTimeLimit: () => unknown;
+  decreaseTimeLimit: () => unknown;
+  shouldFollowSystemDarkMode: boolean;
+  setShouldFollowSystemDarkMode: (shouldFollowSystemDarkMode: boolean) => unknown;
+  theme: "dark" | "light";
+  setTheme: (theme: "dark" | "light") => unknown;
+  vibrationEnabled: boolean;
+  setVibrationEnabled: (vibrationEnabled: boolean) => unknown;
+  scheduleRise: string[];
+  setScheduleRise: (patternIds: string[]) => unknown;
+  scheduleRiseStartTime: string; // Format: "HH:mm" (e.g., "05:00")
+  setScheduleRiseStartTime: (time: string) => unknown;
+  scheduleRiseEndTime: string;
+  setScheduleRiseEndTime: (time: string) => unknown;
+  scheduleReset: string[];
+  setScheduleReset: (patternIds: string[]) => unknown;
+  scheduleResetStartTime: string;
+  setScheduleResetStartTime: (time: string) => unknown;
+  scheduleResetEndTime: string;
+  setScheduleResetEndTime: (time: string) => unknown;
+  scheduleRestore: string[];
+  setScheduleRestore: (patternIds: string[]) => unknown;
+  scheduleRestoreStartTime: string;
+  setScheduleRestoreStartTime: (time: string) => unknown;
+  scheduleRestoreEndTime: string;
+  setScheduleRestoreEndTime: (time: string) => unknown;
+  scheduleRiseVibrationEnabled: boolean | null; // null means use main setting
+  setScheduleRiseVibrationEnabled: (enabled: boolean | null) => unknown;
+  scheduleResetVibrationEnabled: boolean | null;
+  setScheduleResetVibrationEnabled: (enabled: boolean | null) => unknown;
+  scheduleRestoreVibrationEnabled: boolean | null;
+  setScheduleRestoreVibrationEnabled: (enabled: boolean | null) => unknown;
+  customPatterns: PatternPreset[];
+  addCustomPattern: (pattern: PatternPreset) => unknown;
+  removeCustomPattern: (patternId: string) => unknown;
+  customPatternTitle: string;
+  setCustomPatternTitle: (title: string) => unknown;
+  customPatternDescription: string;
+  setCustomPatternDescription: (description: string) => unknown;
+}
+
+export const useSettingsStore = create<SettingsStore>()(
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
+        customPatternEnabled: false,
+        setCustomPatternEnabled: (enabled) => set({ customPatternEnabled: enabled }),
+        customPatternSteps: [ms("4 sec"), ms("2 sec"), ms("4 sec"), ms("2 sec")],
+        setCustomPatternStep: (stepIndex, stepValue) => {
+          const customPatternSteps = Array.from(get().customPatternSteps) as [
+            number,
+            number,
+            number,
+            number
+          ];
+          customPatternSteps[stepIndex] = stepValue;
+          set({ customPatternSteps });
+        },
+        selectedPatternPresetId: "square",
+        setSelectedPatternPresetId: (selectedPatternPresetId) => set({ selectedPatternPresetId }),
+        guidedBreathingVoice: "isabella",
+        setGuidedBreathingVoice: (guidedBreathingVoice) => set({ guidedBreathingVoice }),
+        frequencyTone: "disabled",
+        setFrequencyTone: (frequencyTone) => set({ frequencyTone }),
+        timeLimit: ms("2 min"),
+        increaseTimeLimit: () => set({ timeLimit: get().timeLimit + ms("1 min") }),
+        decreaseTimeLimit: () => set({ timeLimit: get().timeLimit - ms("1 min") }),
+        shouldFollowSystemDarkMode: true,
+        setShouldFollowSystemDarkMode: (shouldFollowSystemDarkMode) =>
+          set({ shouldFollowSystemDarkMode }),
+        theme: "light",
+        setTheme: (theme) => set({ theme }),
+        vibrationEnabled: true,
+        setVibrationEnabled: (vibrationEnabled) => set({ vibrationEnabled }),
+        scheduleRise: [],
+        setScheduleRise: (patternIds) => set({ scheduleRise: patternIds }),
+        scheduleRiseStartTime: "",
+        setScheduleRiseStartTime: (time) => set({ scheduleRiseStartTime: time }),
+        scheduleRiseEndTime: "",
+        setScheduleRiseEndTime: (time) => set({ scheduleRiseEndTime: time }),
+        scheduleReset: [],
+        setScheduleReset: (patternIds) => set({ scheduleReset: patternIds }),
+        scheduleResetStartTime: "",
+        setScheduleResetStartTime: (time) => set({ scheduleResetStartTime: time }),
+        scheduleResetEndTime: "",
+        setScheduleResetEndTime: (time) => set({ scheduleResetEndTime: time }),
+        scheduleRestore: [],
+        setScheduleRestore: (patternIds) => set({ scheduleRestore: patternIds }),
+        scheduleRestoreStartTime: "",
+        setScheduleRestoreStartTime: (time) => set({ scheduleRestoreStartTime: time }),
+        scheduleRestoreEndTime: "",
+        setScheduleRestoreEndTime: (time) => set({ scheduleRestoreEndTime: time }),
+        scheduleRiseVibrationEnabled: null,
+        setScheduleRiseVibrationEnabled: (enabled) => set({ scheduleRiseVibrationEnabled: enabled }),
+        scheduleResetVibrationEnabled: null,
+        setScheduleResetVibrationEnabled: (enabled) => set({ scheduleResetVibrationEnabled: enabled }),
+        scheduleRestoreVibrationEnabled: null,
+        setScheduleRestoreVibrationEnabled: (enabled) => set({ scheduleRestoreVibrationEnabled: enabled }),
+        customPatterns: [],
+        addCustomPattern: (pattern) =>
+          set((state) => ({
+            customPatterns: [...state.customPatterns, pattern],
+          })),
+        removeCustomPattern: (patternId) =>
+          set((state) => ({
+            customPatterns: state.customPatterns.filter((p) => p.id !== patternId),
+          })),
+        customPatternTitle: "",
+        setCustomPatternTitle: (title) => set({ customPatternTitle: title }),
+        customPatternDescription: "",
+        setCustomPatternDescription: (description) =>
+          set({ customPatternDescription: description }),
+      }),
+      {
+        name: "settings-storage",
+        storage: createJSONStorage(() => AsyncStorage),
+        migrate: (persistedState: any, version: number) => {
+          // Migrate old voice values to new ones
+          if (persistedState?.guidedBreathingVoice) {
+            const oldVoice = persistedState.guidedBreathingVoice;
+            // Map old values to new defaults
+            if (oldVoice === "paul" || oldVoice === "laura") {
+              persistedState.guidedBreathingVoice = "isabella";
+            }
+          }
+          return persistedState;
+        },
+        version: 1,
+      }
+    )
+  )
+);
+
+export const useSelectedPatternName = () =>
+  useSettingsStore((state) => {
+    if (state.customPatternEnabled) {
+      return "Custom";
+    }
+    const allPatterns = [...patternPresets, ...state.customPatterns];
+    return allPatterns.find((patternPreset) => patternPreset.id === state.selectedPatternPresetId)
+      ?.name || "Custom";
+  });
+
+export const useSelectedPatternSteps = () =>
+  useSettingsStore((state) => {
+    if (state.customPatternEnabled) {
+      return state.customPatternSteps;
+    }
+    const allPatterns = [...patternPresets, ...state.customPatterns];
+    return allPatterns.find((patternPreset) => patternPreset.id === state.selectedPatternPresetId)
+      ?.steps || state.customPatternSteps;
+  });
+
+// https://github.com/pmndrs/zustand/blob/725c2c0cc08df936f42a52e3df3dec76780a6e01/docs/integrations/persisting-store-data.md
+export const useHydration = () => {
+  const [hydrated, setHydrated] = useState(useSettingsStore.persist.hasHydrated);
+
+  useEffect(() => {
+    const unsubFinishHydration = useSettingsStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+    setHydrated(useSettingsStore.persist.hasHydrated());
+    return () => {
+      unsubFinishHydration();
+    };
+  }, []);
+
+  return hydrated;
+};

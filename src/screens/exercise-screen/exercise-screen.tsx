@@ -1,0 +1,220 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useKeepAwake } from "expo-keep-awake";
+import { useColorScheme } from "nativewind";
+import React, { FC, useState } from "react";
+import { Animated, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable } from "@breathly/common/pressable";
+import { RootStackParamList } from "@breathly/core/navigator";
+import { widestDeviceDimension } from "@breathly/design/metrics";
+import { AnimatedDots } from "@breathly/screens/exercise-screen/animated-dots";
+import { StepDescription } from "@breathly/screens/exercise-screen/step-description";
+import { useExerciseAudio } from "@breathly/screens/exercise-screen/use-exercise-audio";
+import { useExerciseHaptics } from "@breathly/screens/exercise-screen/use-exercise-haptics";
+import { useExerciseLoop } from "@breathly/screens/exercise-screen/use-exercise-loop";
+import { useFrequencyTone } from "@breathly/screens/exercise-screen/use-frequency-tone";
+import { StarsBackground } from "@breathly/screens/home-screen/stars-background";
+import { useSelectedPatternSteps, useSettingsStore } from "@breathly/stores/settings";
+import { StepMetadata } from "@breathly/types/step-metadata";
+import { animate } from "@breathly/utils/animate";
+import { buildStepsMetadata } from "@breathly/utils/build-steps-metadata";
+import { useOnUpdate } from "@breathly/utils/use-on-update";
+import { getActiveScheduleCategory } from "@breathly/utils/schedule-utils";
+import { BreathingAnimation } from "./breathing-animation";
+import { ExerciseComplete } from "./complete";
+import { ExerciseInterlude } from "./interlude";
+import { PositiveWord } from "./positive-word";
+import { Timer } from "./timer";
+
+export type ExerciseStatus = "interlude" | "running" | "completed";
+
+export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exercise">> = ({
+  navigation,
+}) => {
+  const { guidedBreathingVoice, frequencyTone } = useSettingsStore();
+  const [status, setStatus] = useState<ExerciseStatus>("interlude");
+  const insets = useSafeAreaInsets();
+  const { colorScheme } = useColorScheme();
+
+  const { playExerciseStepAudio, playExerciseCompletedAudio } =
+    useExerciseAudio(guidedBreathingVoice);
+  useFrequencyTone(frequencyTone, status === "running");
+
+  useKeepAwake();
+
+  const handleInterludeComplete = () => {
+    setStatus("running");
+  };
+
+  const handleExerciseStepChange = (stepMetadata: StepMetadata) => {
+    playExerciseStepAudio(stepMetadata);
+  };
+
+  const handleTimeLimitReached = () => {
+    playExerciseCompletedAudio();
+    setStatus("completed");
+  };
+
+  return (
+    <View
+      className="flex-1 flex-col justify-between"
+      style={{
+        // Paddings to handle safe area
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+        backgroundColor: colorScheme === "dark" ? "#1a1a1a" : undefined,
+      }}
+    >
+      {status === "interlude" && <ExerciseInterlude onComplete={handleInterludeComplete} />}
+      {status === "running" && (
+        <>
+          {colorScheme === "dark" && (
+            <StarsBackground fadeIn={true} rotate90={true} />
+          )}
+          <ExerciseRunningFragment
+            onTimeLimitReached={handleTimeLimitReached}
+            onStepChange={handleExerciseStepChange}
+          />
+        </>
+      )}
+      {status === "completed" && <ExerciseComplete />}
+      <View className="items-center justify-center pb-10 pt-6">
+        <Pressable
+          className="h-16 w-16 items-center justify-center rounded-full text-center"
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 32,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colorScheme === "dark" 
+              ? "rgba(255, 255, 255, 0.1)" 
+              : "rgba(255, 255, 255, 0.7)",
+            borderWidth: 1,
+            borderColor: colorScheme === "dark" 
+              ? "rgba(255, 255, 255, 0.2)" 
+              : "rgba(0, 0, 0, 0.1)",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+          onPress={navigation.goBack}
+        >
+          <Ionicons 
+            name="close" 
+            size={22} 
+            color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)"} 
+          />
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+interface ExerciseRunningFragmentProps {
+  onTimeLimitReached: () => unknown;
+  onStepChange: (stepMetadata: StepMetadata) => unknown;
+}
+
+const unmountAnimDuration = 300;
+
+const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
+  onTimeLimitReached,
+  onStepChange,
+}) => {
+  const {
+    timeLimit,
+    vibrationEnabled,
+    scheduleRiseStartTime,
+    scheduleRiseEndTime,
+    scheduleResetStartTime,
+    scheduleResetEndTime,
+    scheduleRestoreStartTime,
+    scheduleRestoreEndTime,
+    scheduleRiseVibrationEnabled,
+    scheduleResetVibrationEnabled,
+    scheduleRestoreVibrationEnabled,
+  } = useSettingsStore();
+  const selectedPatternSteps = useSelectedPatternSteps();
+  const [unmountContentAnimVal] = useState(new Animated.Value(1));
+  const stepsMetadata = buildStepsMetadata(selectedPatternSteps);
+
+  const { currentStep, exerciseAnimVal, textAnimVal } = useExerciseLoop(stepsMetadata);
+
+  // Determine active schedule category and get category-specific vibration setting
+  const activeCategory = getActiveScheduleCategory(
+    scheduleRiseStartTime,
+    scheduleRiseEndTime,
+    scheduleResetStartTime,
+    scheduleResetEndTime,
+    scheduleRestoreStartTime,
+    scheduleRestoreEndTime
+  );
+
+  // Get the effective vibration setting (category override or main setting)
+  const effectiveVibrationEnabled = (() => {
+    if (activeCategory === "rise" && scheduleRiseVibrationEnabled !== null) {
+      return scheduleRiseVibrationEnabled;
+    }
+    if (activeCategory === "reset" && scheduleResetVibrationEnabled !== null) {
+      return scheduleResetVibrationEnabled;
+    }
+    if (activeCategory === "restore" && scheduleRestoreVibrationEnabled !== null) {
+      return scheduleRestoreVibrationEnabled;
+    }
+    // Use main setting if no category override
+    return vibrationEnabled;
+  })();
+
+  useOnUpdate(
+    (prevStepMetadata) => {
+      if (prevStepMetadata?.id !== currentStep.id) {
+        onStepChange(currentStep);
+      }
+    },
+    currentStep,
+    true
+  );
+
+  useExerciseHaptics(currentStep, effectiveVibrationEnabled);
+
+  const unmountContentAnimation = animate(unmountContentAnimVal, {
+    toValue: 0,
+    duration: unmountAnimDuration,
+  });
+
+  const handleTimeLimitReached = () => {
+    unmountContentAnimation.start(({ finished }) => {
+      if (finished) {
+        onTimeLimitReached();
+      }
+    });
+  };
+
+  const contentAnimatedStyle = {
+    opacity: unmountContentAnimVal,
+  };
+
+  return (
+    <Animated.View style={contentAnimatedStyle} className="flex-1">
+      <Timer limit={timeLimit} onLimitReached={handleTimeLimitReached} />
+      {currentStep && (
+        <View className="flex-1 items-center justify-center">
+          <PositiveWord />
+          <BreathingAnimation animationValue={exerciseAnimVal} />
+          <StepDescription label={currentStep.label} animationValue={textAnimVal} />
+          <AnimatedDots
+            numberOfDots={3}
+            totalDuration={currentStep.duration}
+            visible={currentStep.id === "afterInhale" || currentStep.id === "afterExhale"}
+          />
+        </View>
+      )}
+    </Animated.View>
+  );
+};

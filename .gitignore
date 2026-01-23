@@ -1,0 +1,24 @@
+# Node & Expo defaults
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# macOS
+.DS_Store
+
+# Secrets
+android/keystores
+credentials.json
+
+# Build output
+*.ipa
+*.apk
+*.aab

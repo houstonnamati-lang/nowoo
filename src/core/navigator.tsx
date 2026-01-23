@@ -1,0 +1,157 @@
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useColorScheme } from "nativewind";
+import React, { FC } from "react";
+import { Platform, Button } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { colors } from "@breathly/design/colors";
+import { ExerciseScreen } from "@breathly/screens/exercise-screen/exercise-screen";
+import { HomeScreen } from "@breathly/screens/home-screen/home-screen";
+import {
+  SettingsRootScreen,
+  SettingsPatternPickerScreen,
+  SettingsScheduleRiseScreen,
+  SettingsScheduleResetScreen,
+  SettingsScheduleRestoreScreen,
+} from "@breathly/screens/settings-screen/settings-screen";
+
+export type RootStackParamList = {
+  Home: undefined;
+  Exercise: undefined;
+  Settings: undefined;
+};
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+export type SettingsStackParamList = {
+  SettingsRoot: undefined;
+  SettingsPatternPicker: undefined;
+  SettingsScheduleRise: undefined;
+  SettingsScheduleReset: undefined;
+  SettingsScheduleRestore: undefined;
+};
+
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+export const Navigator: FC = () => {
+  const { colorScheme } = useColorScheme();
+  const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+  const backgroundColor = colorScheme === "dark" ? "#000000" : colors["stone-100"];
+  const theme = {
+    ...baseTheme,
+    dark: colorScheme === "dark",
+    colors: {
+      ...baseTheme.colors,
+      background: backgroundColor,
+    },
+  };
+  return (
+    <SafeAreaProvider style={{ backgroundColor }}>
+      <NavigationContainer theme={theme}>
+        <RootStack.Navigator
+          initialRouteName="Home"
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <RootStack.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{
+              animation: Platform.OS === "ios" ? "fade" : "simple_push",
+            }}
+          />
+          <RootStack.Screen
+            name="Exercise"
+            component={ExerciseScreen}
+            options={{
+              animation: Platform.OS === "ios" ? "fade" : "simple_push",
+            }}
+          />
+          <RootStack.Screen
+            name="Settings"
+            options={{
+              presentation: Platform.select({
+                ios: "modal",
+              }),
+              contentStyle: {
+                backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],
+              },
+            }}
+          >
+            {() => {
+              const commonHeaderSettings = {
+                headerShadowVisible: Platform.OS === "ios",
+                headerStyle: {
+                  backgroundColor:
+                    colorScheme === "dark" ? "#000000" : colors["stone-100"],
+                },
+                headerTintColor: Platform.OS === "ios" ? undefined : colors["blue-400"],
+              };
+              return (
+                <SettingsStack.Navigator 
+                  initialRouteName="SettingsRoot"
+                  screenOptions={{
+                    contentStyle: {
+                      backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],
+                    },
+                  }}
+                >
+                  <SettingsStack.Screen
+                    name="SettingsRoot"
+                    component={SettingsRootScreen}
+                    options={{
+                      headerShown: true,
+                      headerLargeTitle: true,
+                      headerTitle: "Customizations",
+                      headerLargeTitleShadowVisible: true,
+                      headerShadowVisible: Platform.OS === "ios",
+                      headerStyle: {
+                        backgroundColor:
+                          colorScheme === "dark" ? "#000000" : colors["stone-100"],
+                      },
+                    }}
+                  />
+                  <SettingsStack.Screen
+                    name="SettingsPatternPicker"
+                    component={SettingsPatternPickerScreen}
+                    options={{
+                      headerTitle: "Breathing Patterns",
+                      ...commonHeaderSettings,
+                    }}
+                  />
+                  <SettingsStack.Screen
+                    name="SettingsScheduleRise"
+                    component={SettingsScheduleRiseScreen}
+                    options={{
+                      headerTitle: "Rise",
+                      ...commonHeaderSettings,
+                      headerBackTitle: "Back",
+                    }}
+                  />
+                  <SettingsStack.Screen
+                    name="SettingsScheduleReset"
+                    component={SettingsScheduleResetScreen}
+                    options={{
+                      headerTitle: "Reset",
+                      ...commonHeaderSettings,
+                      headerBackTitle: "Back",
+                    }}
+                  />
+                  <SettingsStack.Screen
+                    name="SettingsScheduleRestore"
+                    component={SettingsScheduleRestoreScreen}
+                    options={{
+                      headerTitle: "Restore",
+                      ...commonHeaderSettings,
+                      headerBackTitle: "Back",
+                    }}
+                  />
+                </SettingsStack.Navigator>
+              );
+            }}
+          </RootStack.Screen>
+        </RootStack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
+  );
+};
