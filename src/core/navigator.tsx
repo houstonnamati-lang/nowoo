@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors } from "@breathly/design/colors";
 import { ExerciseScreen } from "@breathly/screens/exercise-screen/exercise-screen";
 import { HomeScreen } from "@breathly/screens/home-screen/home-screen";
+import { CustomSessionSetupScreen } from "@breathly/screens/custom-session-setup-screen/custom-session-setup-screen";
 import {
   SettingsRootScreen,
   SettingsPatternPickerScreen,
@@ -17,8 +18,9 @@ import {
 
 export type RootStackParamList = {
   Home: undefined;
-  Exercise: undefined;
+  Exercise: { customSettings?: import("@breathly/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings } | undefined;
   Settings: undefined;
+  CustomSessionSetup: undefined;
 };
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -65,6 +67,18 @@ export const Navigator: FC = () => {
             component={ExerciseScreen}
             options={{
               animation: Platform.OS === "ios" ? "fade" : "simple_push",
+            }}
+          />
+          <RootStack.Screen
+            name="CustomSessionSetup"
+            component={CustomSessionSetupScreen}
+            options={{
+              presentation: "transparentModal",
+              animation: "fade",
+              headerShown: false,
+              contentStyle: {
+                backgroundColor: "transparent",
+              },
             }}
           />
           <RootStack.Screen

@@ -20,6 +20,7 @@ interface SettingsStore {
   frequencyTone: FrequencyToneMode;
   setFrequencyTone: (frequencyTone: FrequencyToneMode) => unknown;
   timeLimit: number;
+  setTimeLimit: (timeLimit: number) => unknown;
   increaseTimeLimit: () => unknown;
   decreaseTimeLimit: () => unknown;
   shouldFollowSystemDarkMode: boolean;
@@ -52,6 +53,24 @@ interface SettingsStore {
   setScheduleResetVibrationEnabled: (enabled: boolean | null) => unknown;
   scheduleRestoreVibrationEnabled: boolean | null;
   setScheduleRestoreVibrationEnabled: (enabled: boolean | null) => unknown;
+  scheduleRiseGuidedBreathingVoice: GuidedBreathingMode | null; // null means use main setting
+  setScheduleRiseGuidedBreathingVoice: (voice: GuidedBreathingMode | null) => unknown;
+  scheduleResetGuidedBreathingVoice: GuidedBreathingMode | null;
+  setScheduleResetGuidedBreathingVoice: (voice: GuidedBreathingMode | null) => unknown;
+  scheduleRestoreGuidedBreathingVoice: GuidedBreathingMode | null;
+  setScheduleRestoreGuidedBreathingVoice: (voice: GuidedBreathingMode | null) => unknown;
+  scheduleRiseTimeLimit: number | null; // null means use main setting, in milliseconds
+  setScheduleRiseTimeLimit: (timeLimit: number | null) => unknown;
+  scheduleRiseTimeLimitRandom: boolean;
+  setScheduleRiseTimeLimitRandom: (random: boolean) => unknown;
+  scheduleResetTimeLimit: number | null;
+  setScheduleResetTimeLimit: (timeLimit: number | null) => unknown;
+  scheduleResetTimeLimitRandom: boolean;
+  setScheduleResetTimeLimitRandom: (random: boolean) => unknown;
+  scheduleRestoreTimeLimit: number | null;
+  setScheduleRestoreTimeLimit: (timeLimit: number | null) => unknown;
+  scheduleRestoreTimeLimitRandom: boolean;
+  setScheduleRestoreTimeLimitRandom: (random: boolean) => unknown;
   customPatterns: PatternPreset[];
   addCustomPattern: (pattern: PatternPreset) => unknown;
   removeCustomPattern: (patternId: string) => unknown;
@@ -84,7 +103,8 @@ export const useSettingsStore = create<SettingsStore>()(
         setGuidedBreathingVoice: (guidedBreathingVoice) => set({ guidedBreathingVoice }),
         frequencyTone: "disabled",
         setFrequencyTone: (frequencyTone) => set({ frequencyTone }),
-        timeLimit: ms("2 min"),
+        timeLimit: ms("5 min"),
+        setTimeLimit: (timeLimit) => set({ timeLimit }),
         increaseTimeLimit: () => set({ timeLimit: get().timeLimit + ms("1 min") }),
         decreaseTimeLimit: () => set({ timeLimit: get().timeLimit - ms("1 min") }),
         shouldFollowSystemDarkMode: true,
@@ -118,6 +138,24 @@ export const useSettingsStore = create<SettingsStore>()(
         setScheduleResetVibrationEnabled: (enabled) => set({ scheduleResetVibrationEnabled: enabled }),
         scheduleRestoreVibrationEnabled: null,
         setScheduleRestoreVibrationEnabled: (enabled) => set({ scheduleRestoreVibrationEnabled: enabled }),
+        scheduleRiseGuidedBreathingVoice: null,
+        setScheduleRiseGuidedBreathingVoice: (voice) => set({ scheduleRiseGuidedBreathingVoice: voice }),
+        scheduleResetGuidedBreathingVoice: null,
+        setScheduleResetGuidedBreathingVoice: (voice) => set({ scheduleResetGuidedBreathingVoice: voice }),
+        scheduleRestoreGuidedBreathingVoice: null,
+        setScheduleRestoreGuidedBreathingVoice: (voice) => set({ scheduleRestoreGuidedBreathingVoice: voice }),
+        scheduleRiseTimeLimit: null,
+        setScheduleRiseTimeLimit: (timeLimit) => set({ scheduleRiseTimeLimit: timeLimit }),
+        scheduleRiseTimeLimitRandom: false,
+        setScheduleRiseTimeLimitRandom: (random) => set({ scheduleRiseTimeLimitRandom: random }),
+        scheduleResetTimeLimit: null,
+        setScheduleResetTimeLimit: (timeLimit) => set({ scheduleResetTimeLimit: timeLimit }),
+        scheduleResetTimeLimitRandom: false,
+        setScheduleResetTimeLimitRandom: (random) => set({ scheduleResetTimeLimitRandom: random }),
+        scheduleRestoreTimeLimit: null,
+        setScheduleRestoreTimeLimit: (timeLimit) => set({ scheduleRestoreTimeLimit: timeLimit }),
+        scheduleRestoreTimeLimitRandom: false,
+        setScheduleRestoreTimeLimitRandom: (random) => set({ scheduleRestoreTimeLimitRandom: random }),
         customPatterns: [],
         addCustomPattern: (pattern) =>
           set((state) => ({

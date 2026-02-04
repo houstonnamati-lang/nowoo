@@ -39,8 +39,7 @@ export const SettingsRootScreen: FC<
   const frequencyTone = useSettingsStore((state) => state.frequencyTone);
   const setFrequencyTone = useSettingsStore((state) => state.setFrequencyTone);
   const timeLimit = useSettingsStore((state) => state.timeLimit);
-  const increaseTimeLimit = useSettingsStore((state) => state.increaseTimeLimit);
-  const decreaseTimeLimit = useSettingsStore((state) => state.decreaseTimeLimit);
+  const setTimeLimit = useSettingsStore((state) => state.setTimeLimit);
   const shouldFollowSystemDarkMode = useSettingsStore((state) => state.shouldFollowSystemDarkMode);
   const setShouldFollowSystemDarkMode = useSettingsStore(
     (state) => state.setShouldFollowSystemDarkMode
@@ -195,10 +194,17 @@ export const SettingsRootScreen: FC<
               label="Exercise timer"
               secondaryLabel="Time limit in minutes"
               value={timeLimit > 0 ? timeLimit / ms("1 min") : "∞"}
+              fractionDigits={1}
               iconName="timer"
               iconBackgroundColor="#fb7185"
-              onIncrease={increaseTimeLimit}
-              onDecrease={decreaseTimeLimit}
+              onIncrease={() => {
+                const newLimit = Math.min(maxTimeLimit, timeLimit + ms("0.5 min"));
+                setTimeLimit(newLimit);
+              }}
+              onDecrease={() => {
+                const newLimit = Math.max(0, timeLimit - ms("0.5 min"));
+                setTimeLimit(newLimit);
+              }}
               decreaseDisabled={timeLimit <= 0}
               increaseDisabled={timeLimit >= maxTimeLimit}
             />
@@ -210,15 +216,8 @@ export const SettingsRootScreen: FC<
               iconBackgroundColor="#fbbf24"
               value={(() => {
                 const hasTime = scheduleRiseStartTime && scheduleRiseEndTime;
-                const hasPatterns = scheduleRise.length > 0;
-                if (!hasTime && !hasPatterns) return "Not configured";
-                const timeStr = hasTime 
-                  ? `${formatTimeForDisplay(scheduleRiseStartTime)} - ${formatTimeForDisplay(scheduleRiseEndTime)}`
-                  : "";
-                const patternStr = hasPatterns 
-                  ? `${scheduleRise.length} pattern${scheduleRise.length > 1 ? "s" : ""}`
-                  : "";
-                return [timeStr, patternStr].filter(Boolean).join(" • ");
+                if (!hasTime) return "Not configured";
+                return `${formatTimeForDisplay(scheduleRiseStartTime)} - ${formatTimeForDisplay(scheduleRiseEndTime)}`;
               })()}
               onPress={() => navigation.navigate("SettingsScheduleRise")}
             />
@@ -228,15 +227,8 @@ export const SettingsRootScreen: FC<
               iconBackgroundColor="#60a5fa"
               value={(() => {
                 const hasTime = scheduleResetStartTime && scheduleResetEndTime;
-                const hasPatterns = scheduleReset.length > 0;
-                if (!hasTime && !hasPatterns) return "Not configured";
-                const timeStr = hasTime 
-                  ? `${formatTimeForDisplay(scheduleResetStartTime)} - ${formatTimeForDisplay(scheduleResetEndTime)}`
-                  : "";
-                const patternStr = hasPatterns 
-                  ? `${scheduleReset.length} pattern${scheduleReset.length > 1 ? "s" : ""}`
-                  : "";
-                return [timeStr, patternStr].filter(Boolean).join(" • ");
+                if (!hasTime) return "Not configured";
+                return `${formatTimeForDisplay(scheduleResetStartTime)} - ${formatTimeForDisplay(scheduleResetEndTime)}`;
               })()}
               onPress={() => navigation.navigate("SettingsScheduleReset")}
             />
@@ -246,15 +238,8 @@ export const SettingsRootScreen: FC<
               iconBackgroundColor="#a78bfa"
               value={(() => {
                 const hasTime = scheduleRestoreStartTime && scheduleRestoreEndTime;
-                const hasPatterns = scheduleRestore.length > 0;
-                if (!hasTime && !hasPatterns) return "Not configured";
-                const timeStr = hasTime 
-                  ? `${formatTimeForDisplay(scheduleRestoreStartTime)} - ${formatTimeForDisplay(scheduleRestoreEndTime)}`
-                  : "";
-                const patternStr = hasPatterns 
-                  ? `${scheduleRestore.length} pattern${scheduleRestore.length > 1 ? "s" : ""}`
-                  : "";
-                return [timeStr, patternStr].filter(Boolean).join(" • ");
+                if (!hasTime) return "Not configured";
+                return `${formatTimeForDisplay(scheduleRestoreStartTime)} - ${formatTimeForDisplay(scheduleRestoreEndTime)}`;
               })()}
               onPress={() => navigation.navigate("SettingsScheduleRestore")}
             />
@@ -323,7 +308,7 @@ export const SettingsPatternPickerScreen: FC<
         <SettingsUI.Section label="Custom pattern">
             <SettingsUI.SwitchItem
               label="Custom breathing pattern"
-              iconName="ios-person"
+              iconName="person"
               iconBackgroundColor="#60a5fa"
               value={customPatternEnabled}
               onValueChange={(newValue) => {
@@ -510,6 +495,14 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const scheduleRiseVibrationEnabled = useSettingsStore((state) => state.scheduleRiseVibrationEnabled);
   const setScheduleRiseVibrationEnabled = useSettingsStore((state) => state.setScheduleRiseVibrationEnabled);
+  const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
+  const scheduleRiseGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRiseGuidedBreathingVoice);
+  const setScheduleRiseGuidedBreathingVoice = useSettingsStore((state) => state.setScheduleRiseGuidedBreathingVoice);
+  const timeLimit = useSettingsStore((state) => state.timeLimit);
+  const scheduleRiseTimeLimit = useSettingsStore((state) => state.scheduleRiseTimeLimit);
+  const setScheduleRiseTimeLimit = useSettingsStore((state) => state.setScheduleRiseTimeLimit);
+  const scheduleRiseTimeLimitRandom = useSettingsStore((state) => state.scheduleRiseTimeLimitRandom);
+  const setScheduleRiseTimeLimitRandom = useSettingsStore((state) => state.setScheduleRiseTimeLimitRandom);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -612,6 +605,69 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
             onValueChange={setScheduleRise}
           />
         </SettingsUI.Section>
+        <SettingsUI.Section label="Sounds">
+          <SettingsUI.PickerItem
+            label="Guided breathing"
+            secondaryLabel="Override main guided breathing setting"
+            iconName="volume-medium"
+            iconBackgroundColor="#fbbf24"
+            value={scheduleRiseGuidedBreathingVoice ?? guidedBreathingVoice}
+            options={
+              [
+                { value: "isabella", label: "Isabella" },
+                { value: "jameson", label: "Jameson" },
+                { value: "clara", label: "Clara" },
+                { value: "marcus", label: "Marcus" },
+                { value: "bell", label: "Bell" },
+                { value: "disabled", label: "Disabled" },
+              ] as { value: GuidedBreathingMode; label: string }[]
+            }
+            onValueChange={(value) => {
+              const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
+              setScheduleRiseGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
+            }}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Timer">
+          <SettingsUI.SwitchItem
+            label="Random"
+            secondaryLabel="Random time between 2-10 minutes"
+            iconName="shuffle"
+            iconBackgroundColor="#fbbf24"
+            value={scheduleRiseTimeLimitRandom}
+            onValueChange={(value) => {
+              setScheduleRiseTimeLimitRandom(value);
+              if (value) {
+                // When enabling random, clear the specific time limit override
+                setScheduleRiseTimeLimit(null);
+              }
+            }}
+          />
+          <SettingsUI.StepperItem
+            label="Exercise timer"
+            secondaryLabel="Time limit in minutes"
+            iconName="timer"
+            iconBackgroundColor="#fbbf24"
+            value={scheduleRiseTimeLimitRandom 
+              ? "∞"
+              : scheduleRiseTimeLimit !== null 
+                ? scheduleRiseTimeLimit / ms("1 min")
+                : 5}
+            fractionDigits={1}
+            decreaseDisabled={scheduleRiseTimeLimitRandom || (scheduleRiseTimeLimit !== null ? scheduleRiseTimeLimit <= 0 : false)}
+            increaseDisabled={scheduleRiseTimeLimitRandom || (scheduleRiseTimeLimit !== null ? scheduleRiseTimeLimit >= maxTimeLimit : false)}
+            onDecrease={() => {
+              const currentLimit = scheduleRiseTimeLimit ?? ms("5 min");
+              const newLimit = Math.max(0, currentLimit - ms("0.5 min"));
+              setScheduleRiseTimeLimit(newLimit);
+            }}
+            onIncrease={() => {
+              const currentLimit = scheduleRiseTimeLimit ?? ms("5 min");
+              const newLimit = Math.min(maxTimeLimit, currentLimit + ms("0.5 min"));
+              setScheduleRiseTimeLimit(newLimit);
+            }}
+          />
+        </SettingsUI.Section>
         <SettingsUI.Section label="Haptics" hideBottomBorderAndroid>
           <SettingsUI.SwitchItem
             label="Vibration"
@@ -646,6 +702,14 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const scheduleResetVibrationEnabled = useSettingsStore((state) => state.scheduleResetVibrationEnabled);
   const setScheduleResetVibrationEnabled = useSettingsStore((state) => state.setScheduleResetVibrationEnabled);
+  const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
+  const scheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.scheduleResetGuidedBreathingVoice);
+  const setScheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.setScheduleResetGuidedBreathingVoice);
+  const timeLimit = useSettingsStore((state) => state.timeLimit);
+  const scheduleResetTimeLimit = useSettingsStore((state) => state.scheduleResetTimeLimit);
+  const setScheduleResetTimeLimit = useSettingsStore((state) => state.setScheduleResetTimeLimit);
+  const scheduleResetTimeLimitRandom = useSettingsStore((state) => state.scheduleResetTimeLimitRandom);
+  const setScheduleResetTimeLimitRandom = useSettingsStore((state) => state.setScheduleResetTimeLimitRandom);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -748,6 +812,69 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             onValueChange={setScheduleReset}
           />
         </SettingsUI.Section>
+        <SettingsUI.Section label="Sounds">
+          <SettingsUI.PickerItem
+            label="Guided breathing"
+            secondaryLabel="Override main guided breathing setting"
+            iconName="volume-medium"
+            iconBackgroundColor="#60a5fa"
+            value={scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice}
+            options={
+              [
+                { value: "isabella", label: "Isabella" },
+                { value: "jameson", label: "Jameson" },
+                { value: "clara", label: "Clara" },
+                { value: "marcus", label: "Marcus" },
+                { value: "bell", label: "Bell" },
+                { value: "disabled", label: "Disabled" },
+              ] as { value: GuidedBreathingMode; label: string }[]
+            }
+            onValueChange={(value) => {
+              const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
+              setScheduleResetGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
+            }}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Timer">
+          <SettingsUI.SwitchItem
+            label="Random"
+            secondaryLabel="Random time between 2-10 minutes"
+            iconName="shuffle"
+            iconBackgroundColor="#60a5fa"
+            value={scheduleResetTimeLimitRandom}
+            onValueChange={(value) => {
+              setScheduleResetTimeLimitRandom(value);
+              if (value) {
+                // When enabling random, clear the specific time limit override
+                setScheduleResetTimeLimit(null);
+              }
+            }}
+          />
+          <SettingsUI.StepperItem
+            label="Exercise timer"
+            secondaryLabel="Time limit in minutes"
+            iconName="timer"
+            iconBackgroundColor="#60a5fa"
+            value={scheduleResetTimeLimitRandom 
+              ? "∞"
+              : scheduleResetTimeLimit !== null 
+                ? scheduleResetTimeLimit / ms("1 min")
+                : 5}
+            fractionDigits={1}
+            decreaseDisabled={scheduleResetTimeLimitRandom || (scheduleResetTimeLimit !== null ? scheduleResetTimeLimit <= 0 : false)}
+            increaseDisabled={scheduleResetTimeLimitRandom || (scheduleResetTimeLimit !== null ? scheduleResetTimeLimit >= maxTimeLimit : false)}
+            onDecrease={() => {
+              const currentLimit = scheduleResetTimeLimit ?? ms("5 min");
+              const newLimit = Math.max(0, currentLimit - ms("0.5 min"));
+              setScheduleResetTimeLimit(newLimit);
+            }}
+            onIncrease={() => {
+              const currentLimit = scheduleResetTimeLimit ?? ms("5 min");
+              const newLimit = Math.min(maxTimeLimit, currentLimit + ms("0.5 min"));
+              setScheduleResetTimeLimit(newLimit);
+            }}
+          />
+        </SettingsUI.Section>
         <SettingsUI.Section label="Haptics" hideBottomBorderAndroid>
           <SettingsUI.SwitchItem
             label="Vibration"
@@ -782,6 +909,14 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const scheduleRestoreVibrationEnabled = useSettingsStore((state) => state.scheduleRestoreVibrationEnabled);
   const setScheduleRestoreVibrationEnabled = useSettingsStore((state) => state.setScheduleRestoreVibrationEnabled);
+  const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
+  const scheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRestoreGuidedBreathingVoice);
+  const setScheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.setScheduleRestoreGuidedBreathingVoice);
+  const timeLimit = useSettingsStore((state) => state.timeLimit);
+  const scheduleRestoreTimeLimit = useSettingsStore((state) => state.scheduleRestoreTimeLimit);
+  const setScheduleRestoreTimeLimit = useSettingsStore((state) => state.setScheduleRestoreTimeLimit);
+  const scheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.scheduleRestoreTimeLimitRandom);
+  const setScheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.setScheduleRestoreTimeLimitRandom);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -882,6 +1017,69 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
               };
             })}
             onValueChange={setScheduleRestore}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Sounds">
+          <SettingsUI.PickerItem
+            label="Guided breathing"
+            secondaryLabel="Override main guided breathing setting"
+            iconName="volume-medium"
+            iconBackgroundColor="#a78bfa"
+            value={scheduleRestoreGuidedBreathingVoice ?? guidedBreathingVoice}
+            options={
+              [
+                { value: "isabella", label: "Isabella" },
+                { value: "jameson", label: "Jameson" },
+                { value: "clara", label: "Clara" },
+                { value: "marcus", label: "Marcus" },
+                { value: "bell", label: "Bell" },
+                { value: "disabled", label: "Disabled" },
+              ] as { value: GuidedBreathingMode; label: string }[]
+            }
+            onValueChange={(value) => {
+              const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
+              setScheduleRestoreGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
+            }}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Timer">
+          <SettingsUI.SwitchItem
+            label="Random"
+            secondaryLabel="Random time between 2-10 minutes"
+            iconName="shuffle"
+            iconBackgroundColor="#a78bfa"
+            value={scheduleRestoreTimeLimitRandom}
+            onValueChange={(value) => {
+              setScheduleRestoreTimeLimitRandom(value);
+              if (value) {
+                // When enabling random, clear the specific time limit override
+                setScheduleRestoreTimeLimit(null);
+              }
+            }}
+          />
+          <SettingsUI.StepperItem
+            label="Exercise timer"
+            secondaryLabel="Time limit in minutes"
+            iconName="timer"
+            iconBackgroundColor="#a78bfa"
+            value={scheduleRestoreTimeLimitRandom 
+              ? "∞"
+              : scheduleRestoreTimeLimit !== null 
+                ? scheduleRestoreTimeLimit / ms("1 min")
+                : 5}
+            fractionDigits={1}
+            decreaseDisabled={scheduleRestoreTimeLimitRandom || (scheduleRestoreTimeLimit !== null ? scheduleRestoreTimeLimit <= 0 : false)}
+            increaseDisabled={scheduleRestoreTimeLimitRandom || (scheduleRestoreTimeLimit !== null ? scheduleRestoreTimeLimit >= maxTimeLimit : false)}
+            onDecrease={() => {
+              const currentLimit = scheduleRestoreTimeLimit ?? ms("5 min");
+              const newLimit = Math.max(0, currentLimit - ms("0.5 min"));
+              setScheduleRestoreTimeLimit(newLimit);
+            }}
+            onIncrease={() => {
+              const currentLimit = scheduleRestoreTimeLimit ?? ms("5 min");
+              const newLimit = Math.min(maxTimeLimit, currentLimit + ms("0.5 min"));
+              setScheduleRestoreTimeLimit(newLimit);
+            }}
           />
         </SettingsUI.Section>
         <SettingsUI.Section label="Haptics" hideBottomBorderAndroid>

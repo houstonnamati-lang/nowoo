@@ -16,6 +16,7 @@ import { useExerciseLoop } from "@breathly/screens/exercise-screen/use-exercise-
 import { useFrequencyTone } from "@breathly/screens/exercise-screen/use-frequency-tone";
 import { StarsBackground } from "@breathly/screens/home-screen/stars-background";
 import { useSelectedPatternSteps, useSettingsStore } from "@breathly/stores/settings";
+import { patternPresets } from "@breathly/assets/pattern-presets";
 import { StepMetadata } from "@breathly/types/step-metadata";
 import { animate } from "@breathly/utils/animate";
 import { buildStepsMetadata } from "@breathly/utils/build-steps-metadata";
@@ -31,8 +32,20 @@ export type ExerciseStatus = "interlude" | "running" | "completed";
 
 export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exercise">> = ({
   navigation,
+  route,
 }) => {
-  const { guidedBreathingVoice, frequencyTone } = useSettingsStore();
+  const customSettings = route.params?.customSettings;
+  const mainGuidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
+  const mainFrequencyTone = useSettingsStore((state) => state.frequencyTone);
+  
+  // Use custom settings if provided, otherwise use main settings
+  const guidedBreathingVoice = customSettings?.useDefaults 
+    ? mainGuidedBreathingVoice 
+    : (customSettings?.guidedBreathingVoice ?? mainGuidedBreathingVoice);
+  const frequencyTone = customSettings?.useDefaults
+    ? mainFrequencyTone
+    : (customSettings?.frequencyTone ?? mainFrequencyTone);
+  
   const [status, setStatus] = useState<ExerciseStatus>("interlude");
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
@@ -77,6 +90,7 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
           <ExerciseRunningFragment
             onTimeLimitReached={handleTimeLimitReached}
             onStepChange={handleExerciseStepChange}
+            customSettings={customSettings}
           />
         </>
       )}
@@ -119,6 +133,7 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
 interface ExerciseRunningFragmentProps {
   onTimeLimitReached: () => unknown;
   onStepChange: (stepMetadata: StepMetadata) => unknown;
+  customSettings?: import("@breathly/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings;
 }
 
 const unmountAnimDuration = 300;
@@ -126,50 +141,38 @@ const unmountAnimDuration = 300;
 const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
   onTimeLimitReached,
   onStepChange,
+  customSettings,
 }) => {
   const {
-    timeLimit,
-    vibrationEnabled,
-    scheduleRiseStartTime,
-    scheduleRiseEndTime,
-    scheduleResetStartTime,
-    scheduleResetEndTime,
-    scheduleRestoreStartTime,
-    scheduleRestoreEndTime,
-    scheduleRiseVibrationEnabled,
-    scheduleResetVibrationEnabled,
-    scheduleRestoreVibrationEnabled,
+    timeLimit: mainTimeLimit,
+    vibrationEnabled: mainVibrationEnabled,
+    customPatterns,
   } = useSettingsStore();
-  const selectedPatternSteps = useSelectedPatternSteps();
+  const defaultSelectedPatternSteps = useSelectedPatternSteps();
   const [unmountContentAnimVal] = useState(new Animated.Value(1));
+  
+  // Get pattern steps - use custom if provided, otherwise use default
+  const selectedPatternSteps = React.useMemo(() => {
+    if (customSettings?.patternId) {
+      const allPatterns = [...patternPresets, ...customPatterns];
+      const pattern = allPatterns.find((p) => p.id === customSettings.patternId);
+      return pattern?.steps ?? defaultSelectedPatternSteps;
+    }
+    return defaultSelectedPatternSteps;
+  }, [customSettings?.patternId, customPatterns, defaultSelectedPatternSteps]);
+  
   const stepsMetadata = buildStepsMetadata(selectedPatternSteps);
 
   const { currentStep, exerciseAnimVal, textAnimVal } = useExerciseLoop(stepsMetadata);
 
-  // Determine active schedule category and get category-specific vibration setting
-  const activeCategory = getActiveScheduleCategory(
-    scheduleRiseStartTime,
-    scheduleRiseEndTime,
-    scheduleResetStartTime,
-    scheduleResetEndTime,
-    scheduleRestoreStartTime,
-    scheduleRestoreEndTime
-  );
-
-  // Get the effective vibration setting (category override or main setting)
-  const effectiveVibrationEnabled = (() => {
-    if (activeCategory === "rise" && scheduleRiseVibrationEnabled !== null) {
-      return scheduleRiseVibrationEnabled;
-    }
-    if (activeCategory === "reset" && scheduleResetVibrationEnabled !== null) {
-      return scheduleResetVibrationEnabled;
-    }
-    if (activeCategory === "restore" && scheduleRestoreVibrationEnabled !== null) {
-      return scheduleRestoreVibrationEnabled;
-    }
-    // Use main setting if no category override
-    return vibrationEnabled;
-  })();
+  // Get effective settings - use custom if provided and not using defaults, otherwise use main settings
+  const effectiveVibrationEnabled = customSettings?.useDefaults
+    ? mainVibrationEnabled
+    : (customSettings?.vibrationEnabled ?? mainVibrationEnabled);
+  
+  const effectiveTimeLimit = customSettings?.useDefaults
+    ? mainTimeLimit
+    : (customSettings?.timeLimit ?? mainTimeLimit);
 
   useOnUpdate(
     (prevStepMetadata) => {
@@ -202,7 +205,7 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
 
   return (
     <Animated.View style={contentAnimatedStyle} className="flex-1">
-      <Timer limit={timeLimit} onLimitReached={handleTimeLimitReached} />
+      <Timer limit={effectiveTimeLimit} onLimitReached={handleTimeLimitReached} />
       {currentStep && (
         <View className="flex-1 items-center justify-center">
           <PositiveWord />

@@ -177,7 +177,7 @@ const StepperItem: FC<StepperItemProps> = ({
 }) => {
   return (
     <BaseItem {...baseProps}>
-      <View className="flex-row items-center">
+      <View className="flex-row items-center" style={{ flexShrink: 0 }}>
         <Pressable
           className="items-center justify-center rounded-md bg-blue-400 px-2 py-1"
           style={{ opacity: decreaseDisabled ? 0.4 : 1 }}
@@ -187,10 +187,12 @@ const StepperItem: FC<StepperItemProps> = ({
         >
           <MaterialCommunityIcons name="minus" size={16} color="white" />
         </Pressable>
-        <View className={`${fractionDigits > 0 ? "w-14" : "w-8"} self-center px-2`}>
+        <View style={{ minWidth: 70, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }}>
           <Text
             className="text-center font-breathly-mono font-semibold dark:text-white"
             numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.7}
           >
             {typeof value === "number" && fractionDigits > 0
               ? value.toFixed(fractionDigits)

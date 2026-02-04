@@ -75,21 +75,25 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
 }) => {
   const { colorScheme } = useColorScheme();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingHorizontal: 16 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingLeft: 16, paddingRight: 28 }}>
       {(iconName || label) && (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, flex: 1, maxWidth: "50%", marginRight: 8 }}>
           {iconName && (
             <View style={{ marginRight: 8, borderRadius: 6, backgroundColor: iconBackgroundColor }}>
               <Ionicons style={{ padding: 4 }} name={iconName} size={18} color="white" />
             </View>
           )}
-          <View style={{ flexDirection: "column" }}>
-            <Text style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}>
+          <View style={{ flexDirection: "column", flexShrink: 1, flex: 1 }}>
+            <Text 
+              style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}
+              numberOfLines={2}
+            >
               {label}
             </Text>
             {secondaryLabel && (
               <Text
                 style={{ color: colorScheme === "dark" ? "#999999" : undefined }}
+                numberOfLines={2}
               >
                 {secondaryLabel}
               </Text>
@@ -97,7 +101,9 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
           </View>
         </View>
       )}
-      {children}
+      <View style={{ flexShrink: 0, marginLeft: 8, minWidth: 36, paddingRight: 4 }}>
+        {children}
+      </View>
     </View>
   );
 };
@@ -135,14 +141,32 @@ export const PickerItem: FC<PickerItemProps> = ({
   };
   const selectedOption = options?.find((option) => option.value === value);
   const displayLabel = selectedOption?.label || value || "Unknown";
+  const hasSelection = value && selectedOption;
 
   return (
     <>
       <Pressable onPress={toggleExpanded}>
         <BaseItem {...baseProps}>
-          <Text style={{ color: colorScheme === "dark" ? "#007AFF" : undefined }}>
-            {displayLabel}
-          </Text>
+          <View className="flex-row items-center" style={{ flexShrink: 1, maxWidth: "100%" }}>
+            <Text 
+              style={{ 
+                color: colorScheme === "dark" ? "#007AFF" : undefined,
+                flexShrink: 1
+              }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {displayLabel}
+            </Text>
+            {hasSelection && (
+              <Ionicons
+                name="checkmark-circle"
+                size={18}
+                color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]}
+                style={{ marginLeft: 6, flexShrink: 0 }}
+              />
+            )}
+          </View>
         </BaseItem>
       </Pressable>
       {expanded && options && (
@@ -183,7 +207,7 @@ export const StepperItem: FC<StepperItemProps> = ({
     <BaseItem {...baseProps}>
       <View
         className="flex-row rounded-md border-hairline border-stone-200"
-        style={{ borderColor: colorScheme === "dark" ? "#38383a" : undefined }}
+        style={{ borderColor: colorScheme === "dark" ? "#38383a" : undefined, flexShrink: 0 }}
       >
         <Pressable
           className="items-center justify-center  rounded-l-md bg-gray-100 px-3 py-1"
@@ -201,11 +225,13 @@ export const StepperItem: FC<StepperItemProps> = ({
             color={colorScheme === "dark" ? "white" : colors["slate-500"]}
           />
         </Pressable>
-        <View className={`${fractionDigits > 0 ? "w-14" : "w-8"} self-center px-2`}>
+        <View style={{ minWidth: 70, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }}>
           <Text
             className="text-center font-breathly-mono dark:text-white"
             style={{ fontVariant: ["tabular-nums"] }}
             numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.7}
           >
             {typeof value === "number" && fractionDigits > 0
               ? value.toFixed(fractionDigits)
@@ -258,9 +284,9 @@ export const RadioButtonItem: FC<RadioButtonItemProps> = ({
             {secondaryLabel}
           </Text>
         </View>
-        <View className="w-6 grow items-end">
+        <View style={{ width: 28, alignItems: "center", justifyContent: "center", marginRight: 4 }}>
           {selected && (
-            <Ionicons name={"ios-checkmark-sharp"} size={18} color={colors["blue-500"]} />
+            <Ionicons name="checkmark-circle" size={18} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} />
           )}
         </View>
       </Pressable>
