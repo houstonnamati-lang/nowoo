@@ -1,5 +1,5 @@
 {
-  "name": "breathly-app-expo",
+  "name": "nowoo-app-expo",
   "version": "1.0.0",
   "private": true,
   "overrides": {
@@ -19,6 +19,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/slider": "5.0.1",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-native-picker/picker": "2.11.1",
     "@react-navigation/native": "^7.1.26",
@@ -39,6 +40,7 @@
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-system-ui": "~6.0.9",
+    "firebase": "^12.9.0",
     "ms": "^3.0.0-canary.1",
     "nativewind": "^4.2.1",
     "patch-package": "^6.5.1",

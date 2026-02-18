@@ -4,9 +4,9 @@
 
 I'm back! With a huge update.
 
-I'll try to keep it short this time: I redesigned Breathly's UI and architecture from the ground up to make it easy to implement many of the requests I got in the past. I'm talking about things like pure OLED theme, being able to use decimals in the exercise step lengths, adding white noise, and so on.
+I'll try to keep it short this time: I redesigned NoWoo's UI and architecture from the ground up to make it easy to implement many of the requests I got in the past. I'm talking about things like pure OLED theme, being able to use decimals in the exercise step lengths, adding white noise, and so on.
 
-From a technical standpoint, I moved Breathly to Expo. This change should make it easier to update to major versions of React Native.
+From a technical standpoint, I moved NoWoo to Expo. This change should make it easier to update to major versions of React Native.
 
 Check out updated README.md for more info!
 
@@ -21,7 +21,7 @@ Check out updated README.md for more info!
 
 1. [This ancient React Native bug is still alive](https://github.com/facebook/react-native/issues/28517): in release mode on iOS the starry background was mistakenly defaulting to `resizeMode=”cover”` even if I explicitly set it to `resizeMode=“repeat”`. Had to edit the image to solve it.
 2. Talking about ancient issues, [I still couldn’t get `Animated.sequence` + `Animated.loop` to work correctly together with animation using the native driver](https://github.com/facebook/react-native/issues/28670). I’m still using my own little util as a workaround (`src/utils/loop-animations.ts`).
-3. On Android, animating the opacity of images with the native driver sometimes causes a flash of the image even when completely transparent. This is also an old issue that I’ve been solving for ages [with this ugly workaround](https://github.com/mmazzarolo/ordinary-puzzles-app/blob/b31ca3cc0e4cc66b7b9e39ecc3449b828c5f09e5/src/op-board/Board.tsx#L102-L111).
+3. On Android, animating the opacity of images with the native driver sometimes causes a flash of the image even when completely transparent. This is also an old issue that I’ve been solving for ages [with this ugly workaround](https://github.com/facebook/react-native/issues/28517).
 4. Transparent Android navbars are cool but are wonky on Expo/RN. To make them work [you must set their background to a dumb value like `"rgba(0, 0, 0, 0.002)"` (`"transparent"` or hex vals don’t work)](https://github.com/expo/expo/issues/16036). Also, the transparency breaks when the app transitions from the background to the foreground. I'm manually forcing the transparency back by checking the `appState` and avoiding race conditions with ugly timers/next-ticks but it's inconsistent and you can still see it flash a bit. And it also makes the splash screen jump a bit because the navigation bar is hidden **while** the splash screen is being shown 🙄.
 5. I enjoyed using NativeWind on this project. I only had a couple of issues with `useColorScheme` returning stale data but I patched it manually (see `patches/nativewind+2.0.11.patch`). I noticed it’s being solved in the next version (v3) anyway.
 
@@ -36,7 +36,7 @@ There are two main changes:
 React-Native 0.62 has been available for a couple of months now.  
 The major highlights from this release are the new [Flipper](https://fbflipper.com/) developer tool being enabled by default, the dark-mode support shipped out-of-the box, and several other improvements and bug-fixes.
 
-Updating Breathly to `react-native@0.62.2` was... well, definitely **not** painless.
+Updating NoWoo to `react-native@0.62.2` was... well, definitely **not** painless.
 
 #### The update
 
@@ -172,7 +172,7 @@ I tried a few different approaches, but I wasn't able to strike a balance betwee
 
 ### Libraries and app size
 
-Breathly uses just a few external libraries to keep the bundle size to the minimum.  
+NoWoo uses just a few external libraries to keep the bundle size to the minimum.  
 The libraries used are:
 
 - [`react-native-haptic`](https://github.com/AppAndFlow/react-native-haptic) to handle the haptic feedback on iOS.
@@ -190,8 +190,8 @@ Being careful with the number of libraries was helpful to reduce the bundle size
 In this way the bundle size on Android is way smaller than a standard React-Native's app one (~8MB instead of ~20MB):
 
 <p align="center" margin-bottom="0">
-  <a href="https://breathly.app" target="_blank">
-    <img alt="Breathly" width="420" height="auto" src="./.github/app-size-android.png">
+  <a href="https://nowoo.app" target="_blank">
+    <img alt="NoWoo" width="420" height="auto" src="./.github/app-size-android.png">
   </a>
 </p>
 
@@ -199,7 +199,7 @@ Protip: Enable ProGuard and the separate CPU architecture split build from the b
 
 ### App performance
 
-Even if Breathly is quite small I took care of the performance from its inception in a few different ways.
+Even if NoWoo is quite small I took care of the performance from its inception in a few different ways.
 
 **Animations**  
 To ensure good performance on the animations side I'm using the Native Driver on every single animation of the app. Again, I have previous experience on animations with the Native Driver, but there are a few things that can be a time sink for a newcomer:
@@ -213,7 +213,7 @@ To ensure good performance on the animations side I'm using the Native Driver on
 Just one rule of thumb here: don't load static assets from the JavaScript bundle.
 
 Loading images from the JavaScript side (using `import`/`require`) from my experience is **way** slower than loading them from the native side.  
-In Breathly all the images (logo, icons, background) are bundled as native resources on both iOS and Android. Bundling them as native resources ensures they're loaded as fast as possible, but it was also time consuming:
+In NoWoo all the images (logo, icons, background) are bundled as native resources on both iOS and Android. Bundling them as native resources ensures they're loaded as fast as possible, but it was also time consuming:
 
 - I had to resize each asset multiple times for both iOS (`@2, @3`) and Android (`hdpi`, `xhdpi`, etc...)
 - I'm keeping track of them in a [custom config file](./src/config/images.ts)
@@ -274,12 +274,12 @@ On Android the Status Bar and the Navigation Bar have a solid background color (
 
 ### App Store, Play Store, privacy and licensing
 
-The app is available on both Apple's [App Store](https://itunes.apple.com/app/breathly/id1454852966) and Google's [Play Store](https://play.google.com/store/apps/details?id=com.mmazzarolo.breathly).  
-I also created a [simple landing page](https://breathly.app). You can find the landing page source code [here](https://github.com/mmazzarolo/breathly-website).
+The app is available on both Apple's App Store and Google's Play Store (see README for links).  
+A landing page can be hosted at [nowoo.app](https://nowoo.app).
 
-The Breathly text font on iOS is San Francisco, while the text font on Android is Roboto.
+The NoWoo text font on iOS is San Francisco, while the text font on Android is Roboto.
 I prefer the San Francisco one but it cannot be used on apps distributed on the Play Store.
 
-To accomodate the release on the stores Breathly is license under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/).
+To accomodate the release on the stores NoWoo is license under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/).
 
-Breathly doesn't use any third party software to track/log/debug the app usage.
+NoWoo doesn't use any third party software to track/log/debug the app usage.

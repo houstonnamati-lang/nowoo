@@ -4,21 +4,21 @@ import { useColorScheme } from "nativewind";
 import React, { FC } from "react";
 import { Platform, Button } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { colors } from "@breathly/design/colors";
-import { ExerciseScreen } from "@breathly/screens/exercise-screen/exercise-screen";
-import { HomeScreen } from "@breathly/screens/home-screen/home-screen";
-import { CustomSessionSetupScreen } from "@breathly/screens/custom-session-setup-screen/custom-session-setup-screen";
+import { colors } from "@nowoo/design/colors";
+import { ExerciseScreen } from "@nowoo/screens/exercise-screen/exercise-screen";
+import { HomeScreen } from "@nowoo/screens/home-screen/home-screen";
+import { CustomSessionSetupScreen } from "@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen";
 import {
   SettingsRootScreen,
   SettingsPatternPickerScreen,
   SettingsScheduleRiseScreen,
   SettingsScheduleResetScreen,
   SettingsScheduleRestoreScreen,
-} from "@breathly/screens/settings-screen/settings-screen";
+} from "@nowoo/screens/settings-screen/settings-screen";
 
 export type RootStackParamList = {
   Home: undefined;
-  Exercise: { customSettings?: import("@breathly/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings } | undefined;
+  Exercise: { customSettings?: import("@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings } | undefined;
   Settings: undefined;
   CustomSessionSetup: undefined;
 };

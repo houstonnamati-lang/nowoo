@@ -1,4 +1,4 @@
-import { GuidedBreathingStep } from "@breathly/services/audio";
+import { GuidedBreathingStep } from "@nowoo/services/audio";
 
 export interface StepMetadata {
   id: string;

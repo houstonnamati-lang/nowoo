@@ -1,5 +1,5 @@
-import { patternPresets } from "@breathly/assets/pattern-presets";
-import { PatternPreset } from "@breathly/types/pattern-preset";
+import { patternPresets } from "@nowoo/assets/pattern-presets";
+import { PatternPreset } from "@nowoo/types/pattern-preset";
 
 export type ScheduleCategory = "rise" | "reset" | "restore" | null;
 

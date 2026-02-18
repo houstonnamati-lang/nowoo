@@ -3,8 +3,8 @@ import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "nativewind";
 import React, { FC, PropsWithChildren, useState } from "react";
 import { LayoutAnimation, Switch, Text, TextInput, View, ViewStyle } from "react-native";
-import { Pressable } from "@breathly/common/pressable";
-import { colors } from "@breathly/design/colors";
+import { Pressable } from "@nowoo/common/pressable";
+import { colors } from "@nowoo/design/colors";
 import {
   LinkItemProps,
   PickerItemProps,
@@ -227,7 +227,7 @@ export const StepperItem: FC<StepperItemProps> = ({
         </Pressable>
         <View style={{ minWidth: 70, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }}>
           <Text
-            className="text-center font-breathly-mono dark:text-white"
+            className="text-center font-nowoo-mono dark:text-white"
             style={{ fontVariant: ["tabular-nums"] }}
             numberOfLines={1}
             adjustsFontSizeToFit={true}

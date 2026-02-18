@@ -3,7 +3,7 @@ import { LinearGradient, LinearGradientPoint } from "expo-linear-gradient";
 import ms from "ms";
 import React, { FC, useEffect, useRef } from "react";
 import { Animated, View } from "react-native";
-import { colors } from "@breathly/design/colors";
+import { colors } from "@nowoo/design/colors";
 
 const PLANET_ANIM_DURATION = ms("8 sec");
 

@@ -5,12 +5,12 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        "breathly-serif-medium": ["Lora-Medium"],
-        "breathly-serif-semibold": ["Lora-SemiBold"],
-        "breathly-regular": ["GeneralSans-Regular"],
-        "breathly-medium": ["GeneralSans-Medium"],
-        "breathly-bold": ["GeneralSans-Bold"],
-        "breathly-mono": ["HelveticaNeue-Light"], // iOS default, Android will need Platform check in code
+        "nowoo-serif-medium": ["Lora-Medium"],
+        "nowoo-serif-semibold": ["Lora-SemiBold"],
+        "nowoo-regular": ["GeneralSans-Regular"],
+        "nowoo-medium": ["GeneralSans-Medium"],
+        "nowoo-bold": ["GeneralSans-Bold"],
+        "nowoo-mono": ["HelveticaNeue-Light"], // iOS default, Android will need Platform check in code
       },
       borderWidth: {
         hairline: 0.5, // Hairline width

@@ -6,9 +6,9 @@ import {
   playGuidedBreathingSound,
   clearEncouragementTimeout,
   playSessionTransitionClips,
-} from "@breathly/services/audio";
-import { GuidedBreathingMode } from "@breathly/types/guided-breathing-mode";
-import { StepMetadata } from "@breathly/types/step-metadata";
+} from "@nowoo/services/audio";
+import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
+import { StepMetadata } from "@nowoo/types/step-metadata";
 
 export const useExerciseAudio = (guidedBreathingVoice: GuidedBreathingMode) => {
   const readyPromiseRef = useRef<Promise<void> | null>(null);

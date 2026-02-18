@@ -1,9 +1,9 @@
 import React, { FC, useRef, useState } from "react";
 import { Animated, Text } from "react-native";
-import { animate } from "@breathly/utils/animate";
-import { delay } from "@breathly/utils/delay";
-import { interpolateTranslateY } from "@breathly/utils/interpolate";
-import { useOnMount } from "@breathly/utils/use-on-mount";
+import { animate } from "@nowoo/utils/animate";
+import { delay } from "@nowoo/utils/delay";
+import { interpolateTranslateY } from "@nowoo/utils/interpolate";
+import { useOnMount } from "@nowoo/utils/use-on-mount";
 
 interface Props {
   onComplete: () => void;
@@ -84,11 +84,11 @@ export const ExerciseInterlude: FC<Props> = ({ onComplete, onCountdownStart, whe
 
   return (
     <Animated.View className="flex-1 items-center justify-center" style={containerAnimatedStyle}>
-      <Text className="mb-4 text-center font-breathly-serif-medium text-5xl text-slate-800 dark:text-white">
+      <Text className="mb-4 text-center font-nowoo-serif-medium text-5xl text-slate-800 dark:text-white">
         Relax
       </Text>
       <Animated.View style={subtitleAnimatedStyle}>
-        <Text className="text-center font-breathly-regular text-xl text-slate-500 ">
+        <Text className="text-center font-nowoo-regular text-xl text-slate-500 ">
           {`Starting session in \n${step}`}
         </Text>
       </Animated.View>

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "R3",
-    "slug": "r3",
+    "name": "NoWoo",
+    "slug": "nowoo",
     "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "icon": "./assets/ios-icon.png",
       "buildNumber": "17",
-      "bundleIdentifier": "com.mmazzarolo.breathly"
+      "bundleIdentifier": "com.nowoo.app"
     },
     "android": {
       "blockedPermissions": [
@@ -32,7 +32,7 @@
         "backgroundColor": "#ffffff"
       },
       "icon": "./assets/android-icon.png",
-      "package": "com.mmazzarolo.breathly",
+      "package": "com.nowoo.app",
       "versionCode": 3145747
     },
     "web": {

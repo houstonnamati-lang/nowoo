@@ -3,9 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import ms from "ms";
 import React, { FC, useEffect, useRef } from "react";
 import { Animated, Easing, Image } from "react-native";
-import { images } from "@breathly/assets/images";
-import { deviceHeight, deviceWidth, widestDeviceDimension } from "@breathly/design/metrics";
-import { animate } from "@breathly/utils/animate";
+import { images } from "@nowoo/assets/images";
+import { deviceHeight, deviceWidth, widestDeviceDimension } from "@nowoo/design/metrics";
+import { animate } from "@nowoo/utils/animate";
 
 const BACKGROUND_ANIM_DURATION = ms("2 min");
 

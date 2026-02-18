@@ -1,14 +1,14 @@
 import { Audio } from "expo-av";
-import { sounds } from "@breathly/assets/sounds";
+import { sounds } from "@nowoo/assets/sounds";
 import {
   femaleVoiceInhales,
   femaleVoiceExhales,
   femaleVoiceHold,
   femaleVoiceEncouragement,
   femaleVoiceTransition,
-} from "@breathly/assets/female-voice-assets";
-import { GuidedBreathingMode } from "@breathly/types/guided-breathing-mode";
-import { StepMetadata } from "@breathly/types/step-metadata";
+} from "@nowoo/assets/female-voice-assets";
+import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
+import { StepMetadata } from "@nowoo/types/step-metadata";
 
 (async function () {
   Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
@@ -45,6 +45,12 @@ let bellBreatheInSound: Audio.Sound | undefined;
 let bellBreatheOutSound: Audio.Sound | undefined;
 let bellHoldSound: Audio.Sound | undefined;
 
+let guidedBreathingVolume = 1;
+
+export function setGuidedBreathingVolume(volume: number) {
+  guidedBreathingVolume = Math.max(0, Math.min(1, volume));
+}
+
 export function clearEncouragementTimeout() {
   if (encouragementTimeoutId !== null) {
     clearTimeout(encouragementTimeoutId);
@@ -59,6 +65,7 @@ export async function playSessionTransitionClips(): Promise<void> {
     const idx = femaleTransitionIndex % femaleTransitionSounds.length;
     femaleTransitionIndex++;
     const sound = femaleTransitionSounds[idx];
+    await sound.setVolumeAsync(guidedBreathingVolume);
     await new Promise<void>((resolve, reject) => {
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish && !status.isLooping) {
@@ -88,14 +95,18 @@ async function playFemaleStepCue(audioId: GuidedBreathingStep): Promise<void> {
   }
   if (sounds.length === 0) return;
   const idx = indexRef.value % sounds.length;
-  await sounds[idx].replayAsync();
+  const s = sounds[idx];
+  await s.setVolumeAsync(guidedBreathingVolume);
+  await s.replayAsync();
 }
 
 async function playFemaleEncouragement(): Promise<void> {
   if (femaleEncouragementSounds.length === 0) return;
   const idx = femaleEncouragementIndex % femaleEncouragementSounds.length;
   femaleEncouragementIndex++;
-  await femaleEncouragementSounds[idx].replayAsync();
+  const s = femaleEncouragementSounds[idx];
+  await s.setVolumeAsync(guidedBreathingVolume);
+  await s.replayAsync();
 }
 
 export async function setupGuidedBreathingAudio(guidedBreathingMode: GuidedBreathingMode) {
@@ -192,10 +203,49 @@ export const playGuidedBreathingSound = async (stepMetadata: StepMetadata) => {
         : audioId === "breatheOut"
         ? bellBreatheOutSound
         : bellHoldSound;
-    await s?.replayAsync();
+    if (s) {
+      await s.setVolumeAsync(guidedBreathingVolume);
+      await s.replayAsync();
+    }
   }
 };
 
 export const playEndingBellSound = async () => {
   await endingBellSound?.replayAsync();
 };
+
+let voicePreviewSound: Audio.Sound | null = null;
+let voicePreviewEncouragementIndex = 0;
+let voicePreviewPlaying = false;
+
+/** Play a short voice clip at the given volume for settings preview, or adjust volume of the currently playing clip. Cycles through encouragement recordings when starting a new clip. */
+export async function playVoiceVolumePreview(volume: number): Promise<void> {
+  const v = Math.max(0, Math.min(1, volume));
+  if (voicePreviewPlaying) {
+    if (voicePreviewSound) {
+      await voicePreviewSound.setVolumeAsync(v).catch(() => {});
+    }
+    return;
+  }
+  if (femaleVoiceEncouragement.length === 0) return;
+  const asset = femaleVoiceEncouragement[voicePreviewEncouragementIndex % femaleVoiceEncouragement.length];
+  voicePreviewEncouragementIndex += 1;
+  voicePreviewPlaying = true;
+  try {
+    const { sound } = await Audio.Sound.createAsync(asset, {
+      shouldPlay: true,
+      volume: v,
+    });
+    voicePreviewSound = sound;
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish && !status.isLooping) {
+        voicePreviewPlaying = false;
+        sound.unloadAsync().catch(() => {});
+        if (voicePreviewSound === sound) voicePreviewSound = null;
+      }
+    });
+  } catch (e) {
+    voicePreviewPlaying = false;
+    console.warn("Voice volume preview failed:", e);
+  }
+}

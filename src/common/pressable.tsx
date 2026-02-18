@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   TouchableOpacityProps,
 } from "react-native";
-import { useInterval } from "@breathly/utils/use-interval";
+import { useInterval } from "@nowoo/utils/use-interval";
 
 interface PressableProps extends TouchableOpacityProps {
   onLongPressInterval?: () => unknown;

@@ -1,22 +1,31 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
 import ms from "ms";
-import React, { FC } from "react";
+import React, { FC, useEffect } from "react";
 import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable } from "react-native";
+import Slider from "@react-native-community/slider";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { patternPresets } from "@breathly/assets/pattern-presets";
-import { colors } from "@breathly/design/colors";
-import { SettingsStackParamList } from "@breathly/core/navigator";
-import { SettingsUI } from "@breathly/screens/settings-screen/settings-ui";
+import { patternPresets } from "@nowoo/assets/pattern-presets";
+import { colors } from "@nowoo/design/colors";
+import { SettingsStackParamList } from "@nowoo/core/navigator";
+import { SettingsUI } from "@nowoo/screens/settings-screen/settings-ui";
 import {
   useSelectedPatternSteps,
   useSelectedPatternName,
   useSettingsStore,
-} from "@breathly/stores/settings";
-import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
-import { GuidedBreathingMode } from "@breathly/types/guided-breathing-mode";
-import { PatternPreset } from "@breathly/types/pattern-preset";
-import { validateScheduleTimeRange } from "@breathly/utils/schedule-utils";
+} from "@nowoo/stores/settings";
+import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
+import { PatternPreset } from "@nowoo/types/pattern-preset";
+import { validateScheduleTimeRange } from "@nowoo/utils/schedule-utils";
+import { playVoiceVolumePreview } from "@nowoo/services/audio";
+import {
+  setupFrequencyTone,
+  startFrequencyTone,
+  stopFrequencyTone,
+  releaseFrequencyTone,
+  setToneVolumeMultiplier,
+} from "@nowoo/services/frequency-tone";
 
 const customDurationLimits = [
   [ms("1 sec"), ms("99 sec")],
@@ -27,6 +36,49 @@ const customDurationLimits = [
 
 const maxTimeLimit = ms("60 min");
 
+type VolumeSliderRowProps = {
+  label: string;
+  value: number;
+  onValueChange: (v: number) => void;
+  colorScheme: "dark" | "light" | undefined;
+  onSlidingStart?: () => void;
+  onSlidingComplete?: () => void;
+};
+
+const VolumeSliderRow: FC<VolumeSliderRowProps> = ({
+  label,
+  value,
+  onValueChange,
+  colorScheme,
+  onSlidingStart,
+  onSlidingComplete,
+}) => {
+  const textColor = colorScheme === "dark" ? "#ffffff" : undefined;
+  const trackMin = colorScheme === "dark" ? "#81b0ff" : colors["blue-500"];
+  const trackMax = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
+  const thumb = colorScheme === "dark" ? "#f5f5f5" : colors["blue-500"];
+  return (
+    <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+      <Text style={{ marginBottom: 6, color: textColor }}>{label}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Slider
+          style={{ flex: 1, height: 24 }}
+          minimumValue={0}
+          maximumValue={1}
+          value={value}
+          onValueChange={onValueChange}
+          onSlidingStart={onSlidingStart}
+          onSlidingComplete={onSlidingComplete}
+          minimumTrackTintColor={trackMin}
+          maximumTrackTintColor={trackMax}
+          thumbTintColor={thumb}
+        />
+        <Text style={{ minWidth: 40, color: textColor }}>{Math.round(value * 100)}%</Text>
+      </View>
+    </View>
+  );
+};
+
 export const SettingsRootScreen: FC<
   NativeStackScreenProps<SettingsStackParamList, "SettingsRoot">
 > = ({ navigation }) => {
@@ -36,6 +88,10 @@ export const SettingsRootScreen: FC<
   const selectedPatternDurations = useSelectedPatternSteps();
   const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
   const setGuidedBreathingVoice = useSettingsStore((state) => state.setGuidedBreathingVoice);
+  const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
+  const setDefaultVoiceVolume = useSettingsStore((state) => state.setDefaultVoiceVolume);
+  const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
+  const setDefaultToneVolume = useSettingsStore((state) => state.setDefaultToneVolume);
   const frequencyTone = useSettingsStore((state) => state.frequencyTone);
   const setFrequencyTone = useSettingsStore((state) => state.setFrequencyTone);
   const timeLimit = useSettingsStore((state) => state.timeLimit);
@@ -63,8 +119,26 @@ export const SettingsRootScreen: FC<
   const customPatterns = useSettingsStore((state) => state.customPatterns);
 
   const { colorScheme } = useColorScheme();
-  
+
   const allPatterns = [...patternPresets, ...customPatterns];
+
+  const handleSoundSliderStart = async () => {
+    const mode = frequencyTone === "disabled" ? "200hz" : frequencyTone;
+    await setupFrequencyTone(mode);
+    setToneVolumeMultiplier(defaultToneVolume);
+    await startFrequencyTone();
+  };
+
+  const handleSoundSliderComplete = async () => {
+    await stopFrequencyTone();
+    await releaseFrequencyTone();
+  };
+
+  useEffect(() => {
+    return () => {
+      releaseFrequencyTone();
+    };
+  }, []);
 
   // Helper function to format time for display
   const formatTimeForDisplay = (time: string) => {
@@ -152,6 +226,26 @@ export const SettingsRootScreen: FC<
                 { value: "disabled", label: "Disabled" },
               ] as { value: FrequencyToneMode; label: string }[]}
               onValueChange={setFrequencyTone}
+            />
+            <VolumeSliderRow
+              label="Voice volume"
+              value={defaultVoiceVolume}
+              onValueChange={(v) => {
+                setDefaultVoiceVolume(v);
+                playVoiceVolumePreview(v);
+              }}
+              colorScheme={colorScheme}
+            />
+            <VolumeSliderRow
+              label="Sound volume"
+              value={defaultToneVolume}
+              onValueChange={(v) => {
+                setDefaultToneVolume(v);
+                setToneVolumeMultiplier(v);
+              }}
+              onSlidingStart={handleSoundSliderStart}
+              onSlidingComplete={handleSoundSliderComplete}
+              colorScheme={colorScheme}
             />
           </SettingsUI.Section>
           <SettingsUI.Section label="Appearance">

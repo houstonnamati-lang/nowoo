@@ -1,8 +1,8 @@
 import { useColorScheme } from "nativewind";
 import React, { FC, useRef, useState } from "react";
 import { Animated, View } from "react-native";
-import { animate } from "@breathly/utils/animate";
-import { useInterval } from "@breathly/utils/use-interval";
+import { animate } from "@nowoo/utils/animate";
+import { useInterval } from "@nowoo/utils/use-interval";
 import { getShuffledWords } from "./positive-words";
 
 // Position from top of the flex-1 container (which starts after the timer)
@@ -55,7 +55,7 @@ export const PositiveWord: FC = () => {
         }}
       >
         <Animated.Text
-          className="text-center font-breathly-medium text-xl"
+          className="text-center font-nowoo-medium text-xl"
           style={{
             ...textAnimatedStyle,
             color: isDark ? "#000000" : "#ffffff",

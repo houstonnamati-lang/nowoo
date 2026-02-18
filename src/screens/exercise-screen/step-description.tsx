@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { Animated } from "react-native";
-import { interpolateTranslateY } from "@breathly/utils/interpolate";
+import { interpolateTranslateY } from "@nowoo/utils/interpolate";
 
 interface Props {
   label: string;
@@ -23,7 +23,7 @@ export const StepDescription: FC<Props> = ({ label, animationValue }) => {
 
   return (
     <Animated.Text
-      className="mb-4 text-center font-breathly-medium text-2xl text-slate-800 dark:text-white"
+      className="mb-4 text-center font-nowoo-medium text-2xl text-slate-800 dark:text-white"
       style={textAnimatedStyle}
     >
       {label}

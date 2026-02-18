@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as Haptics from "expo-haptics";
 import { Platform, Vibration } from "react-native";
-import { StepMetadata } from "@breathly/types/step-metadata";
+import { StepMetadata } from "@nowoo/types/step-metadata";
 
 export const useExerciseHaptics = (
   currentStepMetadata: StepMetadata,

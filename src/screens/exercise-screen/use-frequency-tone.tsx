@@ -9,8 +9,8 @@ import {
   stopScheduleBackground,
   releaseScheduleBackground,
   ScheduleCategory,
-} from "@breathly/services/frequency-tone";
-import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
+} from "@nowoo/services/frequency-tone";
+import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
 
 export const useFrequencyTone = (
   frequencyToneMode: FrequencyToneMode,

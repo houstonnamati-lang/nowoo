@@ -3,10 +3,10 @@ import ms from "ms";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist, subscribeWithSelector } from "zustand/middleware";
-import { patternPresets } from "@breathly/assets/pattern-presets";
-import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
-import { GuidedBreathingMode } from "@breathly/types/guided-breathing-mode";
-import { PatternPreset } from "@breathly/types/pattern-preset";
+import { patternPresets } from "@nowoo/assets/pattern-presets";
+import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
+import { PatternPreset } from "@nowoo/types/pattern-preset";
 
 interface SettingsStore {
   customPatternEnabled: boolean;
@@ -17,6 +17,10 @@ interface SettingsStore {
   setSelectedPatternPresetId: (patternPresetId: string) => unknown;
   guidedBreathingVoice: GuidedBreathingMode;
   setGuidedBreathingVoice: (guidedBreathingVoice: GuidedBreathingMode) => unknown;
+  defaultVoiceVolume: number; // 0–1, default volume for guided breathing during practice
+  setDefaultVoiceVolume: (v: number) => unknown;
+  defaultToneVolume: number; // 0–1, default volume for calming frequency during practice
+  setDefaultToneVolume: (v: number) => unknown;
   frequencyTone: FrequencyToneMode;
   setFrequencyTone: (frequencyTone: FrequencyToneMode) => unknown;
   timeLimit: number;
@@ -101,6 +105,10 @@ export const useSettingsStore = create<SettingsStore>()(
         setSelectedPatternPresetId: (selectedPatternPresetId) => set({ selectedPatternPresetId }),
         guidedBreathingVoice: "female",
         setGuidedBreathingVoice: (guidedBreathingVoice) => set({ guidedBreathingVoice }),
+        defaultVoiceVolume: 1,
+        setDefaultVoiceVolume: (v) => set({ defaultVoiceVolume: Math.max(0, Math.min(1, v)) }),
+        defaultToneVolume: 1,
+        setDefaultToneVolume: (v) => set({ defaultToneVolume: Math.max(0, Math.min(1, v)) }),
         frequencyTone: "disabled",
         setFrequencyTone: (frequencyTone) => set({ frequencyTone }),
         timeLimit: ms("5 min"),
@@ -196,9 +204,11 @@ export const useSettingsStore = create<SettingsStore>()(
               persistedState.frequencyTone = "200hz";
             }
           }
+          if (persistedState?.defaultVoiceVolume == null) persistedState.defaultVoiceVolume = 1;
+          if (persistedState?.defaultToneVolume == null) persistedState.defaultToneVolume = 1;
           return persistedState;
         },
-        version: 2,
+        version: 3,
       }
     )
   )

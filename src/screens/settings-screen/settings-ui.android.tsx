@@ -2,9 +2,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import setColor from "color";
 import React, { FC, PropsWithChildren, useEffect, useRef, useState } from "react";
 import { Animated, Switch, Text, TextInput, TouchableOpacity, View, ViewStyle } from "react-native";
-import { Pressable } from "@breathly/common/pressable";
-import { colors } from "@breathly/design/colors";
-import { animate } from "@breathly/utils/animate";
+import { Pressable } from "@nowoo/common/pressable";
+import { colors } from "@nowoo/design/colors";
+import { animate } from "@nowoo/utils/animate";
 import {
   LinkItemProps,
   PickerItemProps,
@@ -189,7 +189,7 @@ const StepperItem: FC<StepperItemProps> = ({
         </Pressable>
         <View style={{ minWidth: 70, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" }}>
           <Text
-            className="text-center font-breathly-mono font-semibold dark:text-white"
+            className="text-center font-nowoo-mono font-semibold dark:text-white"
             numberOfLines={1}
             adjustsFontSizeToFit={true}
             minimumFontScale={0.7}

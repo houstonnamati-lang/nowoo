@@ -2,10 +2,10 @@ import setColor from "color";
 import { useColorScheme } from "nativewind";
 import React, { FC, useEffect, useRef } from "react";
 import { Animated, View } from "react-native";
-import { colors } from "@breathly/design/colors";
-import { shortestDeviceDimension } from "@breathly/design/metrics";
-import { animate } from "@breathly/utils/animate";
-import { times } from "@breathly/utils/times";
+import { colors } from "@nowoo/design/colors";
+import { shortestDeviceDimension } from "@nowoo/design/metrics";
+import { animate } from "@nowoo/utils/animate";
+import { times } from "@nowoo/utils/times";
 
 const circleWidth = shortestDeviceDimension / 2;
 const MOUNT_ANIMATION_DURATION = 300;

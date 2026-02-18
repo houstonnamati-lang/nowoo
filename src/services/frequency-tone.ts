@@ -1,6 +1,6 @@
 import { Audio } from "expo-av";
-import { sounds } from "@breathly/assets/sounds";
-import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
+import { sounds } from "@nowoo/assets/sounds";
+import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
 
 export type ScheduleCategory = "rise" | "reset" | "restore";
 
@@ -32,6 +32,21 @@ const NOISE_VOLUME_RESET_RESTORE = 0.3;
 let pickerToneTargetVolume = TONE_VOLUME;
 let scheduleToneTargetVolume = SCHEDULE_TONE_VOLUME;
 let scheduleNoiseTargetVolume = NOISE_VOLUME_RESET_RESTORE;
+
+let toneVolumeMultiplier = 1;
+
+export function setToneVolumeMultiplier(multiplier: number) {
+  toneVolumeMultiplier = Math.max(0, Math.min(1, multiplier));
+  if (frequencyToneSound && isPlaying) {
+    frequencyToneSound.setVolumeAsync(pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
+  }
+  if (scheduleToneSound && schedulePlaying) {
+    scheduleToneSound.setVolumeAsync(scheduleToneTargetVolume * toneVolumeMultiplier).catch(() => {});
+  }
+  if (scheduleNoiseSound && schedulePlaying) {
+    scheduleNoiseSound.setVolumeAsync(scheduleNoiseTargetVolume * toneVolumeMultiplier).catch(() => {});
+  }
+}
 
 const FADE_MS = 800;
 const FADE_STEPS = 20;
@@ -73,14 +88,14 @@ export async function startFrequencyTone() {
     await frequencyToneSound.setVolumeAsync(0);
     await frequencyToneSound.playAsync();
     isPlaying = true;
-    fadeVolume(frequencyToneSound, 0, pickerToneTargetVolume).catch(() => {});
+    fadeVolume(frequencyToneSound, 0, pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
   }
 }
 
 export async function stopFrequencyTone() {
   if (frequencyToneSound && isPlaying) {
     isPlaying = false;
-    await fadeVolume(frequencyToneSound, pickerToneTargetVolume, 0);
+    await fadeVolume(frequencyToneSound, pickerToneTargetVolume * toneVolumeMultiplier, 0);
     await frequencyToneSound.pauseAsync();
   }
 }
@@ -135,12 +150,12 @@ export async function startScheduleBackground() {
   if (scheduleToneSound) {
     await scheduleToneSound.setVolumeAsync(0);
     await scheduleToneSound.playAsync();
-    fadeVolume(scheduleToneSound, 0, scheduleToneTargetVolume).catch(() => {});
+    fadeVolume(scheduleToneSound, 0, scheduleToneTargetVolume * toneVolumeMultiplier).catch(() => {});
   }
   if (scheduleNoiseSound) {
     await scheduleNoiseSound.setVolumeAsync(0);
     await scheduleNoiseSound.playAsync();
-    fadeVolume(scheduleNoiseSound, 0, scheduleNoiseTargetVolume).catch(() => {});
+    fadeVolume(scheduleNoiseSound, 0, scheduleNoiseTargetVolume * toneVolumeMultiplier).catch(() => {});
   }
 }
 
@@ -148,11 +163,11 @@ export async function stopScheduleBackground() {
   if (!schedulePlaying) return;
   schedulePlaying = false;
   if (scheduleToneSound) {
-    await fadeVolume(scheduleToneSound, scheduleToneTargetVolume, 0);
+    await fadeVolume(scheduleToneSound, scheduleToneTargetVolume * toneVolumeMultiplier, 0);
     await scheduleToneSound.pauseAsync();
   }
   if (scheduleNoiseSound) {
-    await fadeVolume(scheduleNoiseSound, scheduleNoiseTargetVolume, 0);
+    await fadeVolume(scheduleNoiseSound, scheduleNoiseTargetVolume * toneVolumeMultiplier, 0);
     await scheduleNoiseSound.pauseAsync();
   }
 }

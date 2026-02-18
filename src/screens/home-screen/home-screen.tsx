@@ -5,16 +5,16 @@ import { Animated, Image, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { create } from "zustand";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { images } from "@breathly/assets/images";
-import { Pressable } from "@breathly/common/pressable";
-import { RootStackParamList } from "@breathly/core/navigator";
-import { colors } from "@breathly/design/colors";
-import { useSettingsStore } from "@breathly/stores/settings";
+import { images } from "@nowoo/assets/images";
+import { Pressable } from "@nowoo/common/pressable";
+import { RootStackParamList } from "@nowoo/core/navigator";
+import { colors } from "@nowoo/design/colors";
+import { useSettingsStore } from "@nowoo/stores/settings";
 import {
   getActiveScheduleCategory,
   getRandomPatternFromSchedule,
   getPatternById,
-} from "@breathly/utils/schedule-utils";
+} from "@nowoo/utils/schedule-utils";
 
 export const useHomeScreenStatusStore = create<{
   isHomeScreenReady: boolean;
@@ -184,20 +184,9 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
         paddingBottom: insets.bottom,
         paddingLeft: insets.left,
         paddingRight: insets.right,
-        backgroundColor: colorScheme === "dark" ? "#000000" : "#ffffff",
+        backgroundColor: colorScheme === "dark" ? "#2d2d2d" : "#ffffff",
       }}
     >
-      <View 
-        className="absolute inset-0"
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-      >
-        <Image
-          source={images.backgroundStainless}
-          resizeMode="cover"
-          style={{ width: "100%", height: "100%" }}
-        />
-      </View>
-
       <Pressable
         className="absolute"
         style={{

@@ -2,14 +2,14 @@ import * as Font from "expo-font";
 import { useColorScheme } from "nativewind";
 import React, { FC, useEffect } from "react";
 import { Platform, UIManager, View, LayoutAnimation } from "react-native";
-import { fonts as fontAssets } from "@breathly/assets/fonts";
-import { Navigator } from "@breathly/core/navigator";
-import { useHydration, useSettingsStore } from "@breathly/stores/settings";
+import { fonts as fontAssets } from "@nowoo/assets/fonts";
+import { Navigator } from "@nowoo/core/navigator";
+import { useHydration, useSettingsStore } from "@nowoo/stores/settings";
 import {
   initializeImmersiveMode,
   useStickyImmersiveReset,
-} from "@breathly/utils/use-sticky-immersive-reset";
-import { useThemedStatusBar } from "@breathly/utils/use-themed-status-bar";
+} from "@nowoo/utils/use-sticky-immersive-reset";
+import { useThemedStatusBar } from "@nowoo/utils/use-themed-status-bar";
 import { SplashScreenManager } from "./splash-screen-manager";
 
 // Enable layout animations on Android so that we can animate views to their new

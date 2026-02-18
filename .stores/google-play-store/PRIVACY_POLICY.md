@@ -1,10 +1,10 @@
-# Breathly App Privacy Policy
+# NoWoo App Privacy Policy
 
-Breathly app is an Open Source app provided by Mazzarolo Matteo at no cost and is intended for use as is.
+NoWoo is an app provided at no cost and is intended for use as is.
 
 ## 1. Information collection
 
-Breathly app does not directly collect any information about its usage but some informations can be shared with the following third parties:
+NoWoo does not directly collect any information about its usage but some information can be shared with the following third parties:
 
 - [Google Play Console](https://play.google.com/apps/publish/) to handle the app distribution and the beta testing.
 
@@ -16,4 +16,4 @@ We will update this privacy policy as necessary to stay compliant with relevant 
 
 ## 3. Support
 
-If you have any questions or comments about this policy, you may email us at [breathlyapp@gmail.com](breathlyapp@gmail.com).
+If you have any questions or comments about this policy, you may email us at [support@nowoo.app](mailto:support@nowoo.app).

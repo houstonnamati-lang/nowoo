@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useState } from "react";
 import { Animated, Text } from "react-native";
-import { animate } from "@breathly/utils/animate";
-import { interpolateTranslateY } from "@breathly/utils/interpolate";
+import { animate } from "@nowoo/utils/animate";
+import { interpolateTranslateY } from "@nowoo/utils/interpolate";
 
 const mountAnimDuration = 400;
 const unmountAnimDuration = 400;
@@ -42,7 +42,7 @@ export const ExerciseComplete: FC = () => {
 
   return (
     <Animated.View className="flex-1 items-center justify-center" style={containerAnimatedStyle}>
-      <Text className="text-center font-breathly-serif-medium text-5xl text-slate-800 dark:text-white">
+      <Text className="text-center font-nowoo-serif-medium text-5xl text-slate-800 dark:text-white">
         Complete
       </Text>
     </Animated.View>

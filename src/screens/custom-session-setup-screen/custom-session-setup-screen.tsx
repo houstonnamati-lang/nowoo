@@ -3,14 +3,14 @@ import { useColorScheme } from "nativewind";
 import React, { FC, useState, useMemo } from "react";
 import { Platform, ScrollView, Text, View, Pressable, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable as CustomPressable } from "@breathly/common/pressable";
-import { RootStackParamList } from "@breathly/core/navigator";
-import { colors } from "@breathly/design/colors";
-import { SettingsUI } from "@breathly/screens/settings-screen/settings-ui";
-import { useSettingsStore } from "@breathly/stores/settings";
-import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
-import { GuidedBreathingMode } from "@breathly/types/guided-breathing-mode";
-import { patternPresets } from "@breathly/assets/pattern-presets";
+import { Pressable as CustomPressable } from "@nowoo/common/pressable";
+import { RootStackParamList } from "@nowoo/core/navigator";
+import { colors } from "@nowoo/design/colors";
+import { SettingsUI } from "@nowoo/screens/settings-screen/settings-ui";
+import { useSettingsStore } from "@nowoo/stores/settings";
+import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
+import { patternPresets } from "@nowoo/assets/pattern-presets";
 import ms from "ms";
 
 export type CustomSessionSettings = {

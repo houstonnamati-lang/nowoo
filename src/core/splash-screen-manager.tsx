@@ -5,8 +5,8 @@ import * as SplashScreen from "expo-splash-screen";
 import ms from "ms";
 import React, { PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
-import { useHomeScreenStatusStore } from "@breathly/screens/home-screen/home-screen";
-import { delay } from "@breathly/utils/delay";
+import { useHomeScreenStatusStore } from "@nowoo/screens/home-screen/home-screen";
+import { delay } from "@nowoo/utils/delay";
 
 // Instruct SplashScreen not to hide yet, we want to do this manually
 SplashScreen.preventAutoHideAsync().catch(() => {

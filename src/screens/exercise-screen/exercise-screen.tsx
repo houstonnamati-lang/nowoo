@@ -3,25 +3,27 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
 import React, { FC, useState } from "react";
-import { Animated, View } from "react-native";
+import { Animated, Modal, Switch, Text, View } from "react-native";
+import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable } from "@breathly/common/pressable";
-import { RootStackParamList } from "@breathly/core/navigator";
-import { widestDeviceDimension } from "@breathly/design/metrics";
-import { AnimatedDots } from "@breathly/screens/exercise-screen/animated-dots";
-import { StepDescription } from "@breathly/screens/exercise-screen/step-description";
-import { useExerciseAudio } from "@breathly/screens/exercise-screen/use-exercise-audio";
-import { useExerciseHaptics } from "@breathly/screens/exercise-screen/use-exercise-haptics";
-import { useExerciseLoop } from "@breathly/screens/exercise-screen/use-exercise-loop";
-import { useFrequencyTone } from "@breathly/screens/exercise-screen/use-frequency-tone";
-import { StarsBackground } from "@breathly/screens/home-screen/stars-background";
-import { useSelectedPatternSteps, useSettingsStore } from "@breathly/stores/settings";
-import { patternPresets } from "@breathly/assets/pattern-presets";
-import { StepMetadata } from "@breathly/types/step-metadata";
-import { animate } from "@breathly/utils/animate";
-import { buildStepsMetadata } from "@breathly/utils/build-steps-metadata";
-import { useOnUpdate } from "@breathly/utils/use-on-update";
-import { getActiveScheduleCategory } from "@breathly/utils/schedule-utils";
+import { Pressable } from "@nowoo/common/pressable";
+import { RootStackParamList } from "@nowoo/core/navigator";
+import { widestDeviceDimension } from "@nowoo/design/metrics";
+import { AnimatedDots } from "@nowoo/screens/exercise-screen/animated-dots";
+import { StepDescription } from "@nowoo/screens/exercise-screen/step-description";
+import { setGuidedBreathingVolume } from "@nowoo/services/audio";
+import { setToneVolumeMultiplier } from "@nowoo/services/frequency-tone";
+import { useExerciseAudio } from "@nowoo/screens/exercise-screen/use-exercise-audio";
+import { useExerciseHaptics } from "@nowoo/screens/exercise-screen/use-exercise-haptics";
+import { useExerciseLoop } from "@nowoo/screens/exercise-screen/use-exercise-loop";
+import { useFrequencyTone } from "@nowoo/screens/exercise-screen/use-frequency-tone";
+import { useSelectedPatternSteps, useSettingsStore } from "@nowoo/stores/settings";
+import { patternPresets } from "@nowoo/assets/pattern-presets";
+import { StepMetadata } from "@nowoo/types/step-metadata";
+import { animate } from "@nowoo/utils/animate";
+import { buildStepsMetadata } from "@nowoo/utils/build-steps-metadata";
+import { useOnUpdate } from "@nowoo/utils/use-on-update";
+import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
 import { BreathingAnimation } from "./breathing-animation";
 import { ExerciseComplete } from "./complete";
 import { ExerciseInterlude } from "./interlude";
@@ -46,7 +48,11 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
   const scheduleRiseGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRiseGuidedBreathingVoice);
   const scheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.scheduleResetGuidedBreathingVoice);
   const scheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRestoreGuidedBreathingVoice);
-  
+  const mainVibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const scheduleRiseVibrationEnabled = useSettingsStore((state) => state.scheduleRiseVibrationEnabled);
+  const scheduleResetVibrationEnabled = useSettingsStore((state) => state.scheduleResetVibrationEnabled);
+  const scheduleRestoreVibrationEnabled = useSettingsStore((state) => state.scheduleRestoreVibrationEnabled);
+
   // Use custom settings if provided; otherwise check schedule overrides; else use main settings
   const guidedBreathingVoice = (() => {
     if (customSettings) {
@@ -92,12 +98,45 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
   })();
   
   const [status, setStatus] = useState<ExerciseStatus>("interlude");
+  const [isPaused, setIsPaused] = useState(false);
+  const [showPauseDialog, setShowPauseDialog] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [voiceVolume, setVoiceVolume] = useState(() =>
+    useSettingsStore.getState().defaultVoiceVolume ?? 1
+  );
+  const [toneVolume, setToneVolume] = useState(() =>
+    useSettingsStore.getState().defaultToneVolume ?? 1
+  );
+  const [hapticsOverride, setHapticsOverride] = useState<boolean | null>(null);
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
 
+  const computedVibrationEnabled = (() => {
+    if (customSettings?.useDefaults) return mainVibrationEnabled;
+    if (customSettings) return customSettings.vibrationEnabled ?? mainVibrationEnabled;
+    const activeCategory = getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+    if (activeCategory === "rise" && scheduleRiseVibrationEnabled !== null) return scheduleRiseVibrationEnabled;
+    if (activeCategory === "reset" && scheduleResetVibrationEnabled !== null) return scheduleResetVibrationEnabled;
+    if (activeCategory === "restore" && scheduleRestoreVibrationEnabled !== null) return scheduleRestoreVibrationEnabled;
+    return mainVibrationEnabled;
+  })();
+  const effectiveVibrationEnabled = hapticsOverride !== null ? hapticsOverride : computedVibrationEnabled;
+
   const { playExerciseStepAudio, playExerciseCompletedAudio, playSessionTransitionClips, whenAudioReady } =
     useExerciseAudio(guidedBreathingVoice);
-  useFrequencyTone(frequencyTone, status === "running", scheduleCategoryForAudio);
+  useFrequencyTone(frequencyTone, status === "running" && !isPaused, scheduleCategoryForAudio);
+
+  React.useEffect(() => {
+    setGuidedBreathingVolume(voiceVolume);
+    setToneVolumeMultiplier(toneVolume);
+  }, [voiceVolume, toneVolume]);
 
   useKeepAwake();
 
@@ -118,7 +157,6 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
     <View
       className="flex-1 flex-col justify-between"
       style={{
-        // Paddings to handle safe area
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
         paddingLeft: insets.left,
@@ -135,48 +173,245 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
       )}
       {status === "running" && (
         <>
-          {colorScheme === "dark" && (
-            <StarsBackground fadeIn={true} rotate90={true} />
-          )}
           <ExerciseRunningFragment
             onTimeLimitReached={handleTimeLimitReached}
             onStepChange={handleExerciseStepChange}
             customSettings={customSettings}
+            isPaused={isPaused}
+            effectiveVibrationEnabled={effectiveVibrationEnabled}
           />
+          <View className="flex-row items-center justify-center gap-4 pb-10 pt-6">
+            <Pressable
+              className="h-16 w-16 items-center justify-center rounded-full"
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: colorScheme === "dark"
+                  ? "rgba(255, 255, 255, 0.1)"
+                  : "rgba(255, 255, 255, 0.7)",
+                borderWidth: 1,
+                borderColor: colorScheme === "dark"
+                  ? "rgba(255, 255, 255, 0.2)"
+                  : "rgba(0, 0, 0, 0.1)",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              onPress={() => {
+                setIsPaused(true);
+                setShowPauseDialog(true);
+              }}
+            >
+              <Ionicons
+                name="pause"
+                size={26}
+                color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)"}
+              />
+            </Pressable>
+            <Pressable
+              className="h-16 w-16 items-center justify-center rounded-full"
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: colorScheme === "dark"
+                  ? "rgba(255, 255, 255, 0.1)"
+                  : "rgba(255, 255, 255, 0.7)",
+                borderWidth: 1,
+                borderColor: colorScheme === "dark"
+                  ? "rgba(255, 255, 255, 0.2)"
+                  : "rgba(0, 0, 0, 0.1)",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              onPress={() => setShowSettingsModal(true)}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={26}
+                color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)"}
+              />
+            </Pressable>
+          </View>
         </>
       )}
       {status === "completed" && <ExerciseComplete />}
-      <View className="items-center justify-center pb-10 pt-6">
+
+      <Modal
+        visible={showPauseDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowPauseDialog(false);
+          setIsPaused(false);
+        }}
+      >
         <Pressable
-          className="h-16 w-16 items-center justify-center rounded-full text-center"
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: colorScheme === "dark" 
-              ? "rgba(255, 255, 255, 0.1)" 
-              : "rgba(255, 255, 255, 0.7)",
-            borderWidth: 1,
-            borderColor: colorScheme === "dark" 
-              ? "rgba(255, 255, 255, 0.2)" 
-              : "rgba(0, 0, 0, 0.1)",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-          onPress={navigation.goBack}
+          className="flex-1 items-center justify-center bg-black/50"
+          onPress={() => {}}
+          style={{ padding: 24 }}
         >
-          <Ionicons 
-            name="close" 
-            size={22} 
-            color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)"} 
-          />
+          <View
+            className="w-full max-w-sm rounded-2xl p-6"
+            style={{
+              backgroundColor: colorScheme === "dark" ? "#2d2d2d" : "#fff",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+          >
+            <Text
+              className="mb-4 text-center text-lg font-semibold"
+              style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}
+            >
+              Exercise paused
+            </Text>
+            <Pressable
+              className="mb-3 rounded-xl py-3"
+              style={{ backgroundColor: colorScheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
+              onPress={() => {
+                setShowPauseDialog(false);
+                setIsPaused(false);
+              }}
+            >
+              <Text
+                className="text-center text-base"
+                style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}
+              >
+                Resume
+              </Text>
+            </Pressable>
+            <Pressable
+              className="mb-3 rounded-xl py-3"
+              style={{ backgroundColor: colorScheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
+              onPress={() => {
+                setShowPauseDialog(false);
+                setIsPaused(false);
+                setStatus("interlude");
+              }}
+            >
+              <Text
+                className="text-center text-base"
+                style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}
+              >
+                Restart
+              </Text>
+            </Pressable>
+            <Pressable
+              className="rounded-xl py-3"
+              style={{ backgroundColor: colorScheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
+              onPress={() => {
+                setShowPauseDialog(false);
+                setIsPaused(false);
+                navigation.goBack();
+              }}
+            >
+              <Text
+                className="text-center text-base"
+                style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}
+              >
+                Stop
+              </Text>
+            </Pressable>
+          </View>
         </Pressable>
-      </View>
+      </Modal>
+
+      <Modal
+        visible={showSettingsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/50"
+          onPress={() => setShowSettingsModal(false)}
+          style={{ padding: 24 }}
+        >
+          <Pressable
+            className="w-full max-w-sm rounded-2xl p-6"
+            style={{
+              backgroundColor: colorScheme === "dark" ? "#2d2d2d" : "#fff",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text
+              className="mb-4 text-center text-lg font-semibold"
+              style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}
+            >
+              Settings
+            </Text>
+            <View className="mb-4">
+              <Text className="mb-1" style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}>Voice volume</Text>
+              <View className="flex-row items-center gap-3">
+                <Slider
+                  style={{ flex: 1, height: 24 }}
+                  minimumValue={0}
+                  maximumValue={1}
+                  value={voiceVolume}
+                  onValueChange={(v) => {
+                    setVoiceVolume(v);
+                    setGuidedBreathingVolume(v);
+                  }}
+                  minimumTrackTintColor={colorScheme === "dark" ? "#81b0ff" : "#3b82f6"}
+                  maximumTrackTintColor={colorScheme === "dark" ? "#444" : "#d1d5db"}
+                  thumbTintColor={colorScheme === "dark" ? "#f5f5f5" : "#3b82f6"}
+                />
+                <Text style={{ minWidth: 36, color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}>
+                  {Math.round(voiceVolume * 100)}%
+                </Text>
+              </View>
+            </View>
+            <View className="mb-4">
+              <Text className="mb-1" style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}>Sound volume</Text>
+              <View className="flex-row items-center gap-3">
+                <Slider
+                  style={{ flex: 1, height: 24 }}
+                  minimumValue={0}
+                  maximumValue={1}
+                  value={toneVolume}
+                  onValueChange={(v) => {
+                    setToneVolume(v);
+                    setToneVolumeMultiplier(v);
+                  }}
+                  minimumTrackTintColor={colorScheme === "dark" ? "#81b0ff" : "#3b82f6"}
+                  maximumTrackTintColor={colorScheme === "dark" ? "#444" : "#d1d5db"}
+                  thumbTintColor={colorScheme === "dark" ? "#f5f5f5" : "#3b82f6"}
+                />
+                <Text style={{ minWidth: 36, color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}>
+                  {Math.round(toneVolume * 100)}%
+                </Text>
+              </View>
+            </View>
+            <View className="flex-row items-center justify-between">
+              <Text style={{ color: colorScheme === "dark" ? "#f5f5f5" : "#000" }}>Haptics</Text>
+              <Switch
+                value={effectiveVibrationEnabled}
+                onValueChange={(v) => setHapticsOverride(v)}
+                trackColor={{ false: "#767577", true: "#81b0ff" }}
+                thumbColor={effectiveVibrationEnabled ? "#f5f5f5" : "#f4f3f4"}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -184,7 +419,9 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
 interface ExerciseRunningFragmentProps {
   onTimeLimitReached: () => unknown;
   onStepChange: (stepMetadata: StepMetadata) => unknown;
-  customSettings?: import("@breathly/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings;
+  customSettings?: import("@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings;
+  isPaused?: boolean;
+  effectiveVibrationEnabled?: boolean;
 }
 
 const unmountAnimDuration = 300;
@@ -193,20 +430,12 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
   onTimeLimitReached,
   onStepChange,
   customSettings,
+  isPaused = false,
+  effectiveVibrationEnabled = true,
 }) => {
   const {
     timeLimit: mainTimeLimit,
-    vibrationEnabled: mainVibrationEnabled,
     customPatterns,
-    scheduleRiseStartTime,
-    scheduleRiseEndTime,
-    scheduleResetStartTime,
-    scheduleResetEndTime,
-    scheduleRestoreStartTime,
-    scheduleRestoreEndTime,
-    scheduleRiseVibrationEnabled,
-    scheduleResetVibrationEnabled,
-    scheduleRestoreVibrationEnabled,
   } = useSettingsStore();
   const defaultSelectedPatternSteps = useSelectedPatternSteps();
   const [unmountContentAnimVal] = useState(new Animated.Value(1));
@@ -223,29 +452,7 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
   
   const stepsMetadata = buildStepsMetadata(selectedPatternSteps);
 
-  const { currentStep, exerciseAnimVal, textAnimVal } = useExerciseLoop(stepsMetadata);
-
-  // Get effective settings - custom session, schedule override, or main
-  const effectiveVibrationEnabled = (() => {
-    if (customSettings?.useDefaults) return mainVibrationEnabled;
-    if (customSettings) return customSettings.vibrationEnabled ?? mainVibrationEnabled;
-    // No custom session - check schedule override
-    const activeCategory = getActiveScheduleCategory(
-      scheduleRiseStartTime,
-      scheduleRiseEndTime,
-      scheduleResetStartTime,
-      scheduleResetEndTime,
-      scheduleRestoreStartTime,
-      scheduleRestoreEndTime
-    );
-    if (activeCategory === "rise" && scheduleRiseVibrationEnabled !== null)
-      return scheduleRiseVibrationEnabled;
-    if (activeCategory === "reset" && scheduleResetVibrationEnabled !== null)
-      return scheduleResetVibrationEnabled;
-    if (activeCategory === "restore" && scheduleRestoreVibrationEnabled !== null)
-      return scheduleRestoreVibrationEnabled;
-    return mainVibrationEnabled;
-  })();
+  const { currentStep, exerciseAnimVal, textAnimVal } = useExerciseLoop(stepsMetadata, isPaused);
   
   const effectiveTimeLimit = customSettings?.useDefaults
     ? mainTimeLimit
@@ -282,7 +489,11 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
 
   return (
     <Animated.View style={contentAnimatedStyle} className="flex-1">
-      <Timer limit={effectiveTimeLimit} onLimitReached={handleTimeLimitReached} />
+      <Timer
+        limit={effectiveTimeLimit}
+        onLimitReached={handleTimeLimitReached}
+        paused={isPaused}
+      />
       {currentStep && (
         <View className="flex-1 items-center justify-center">
           <PositiveWord />

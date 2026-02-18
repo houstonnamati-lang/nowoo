@@ -1,9 +1,9 @@
 import React, { FC, useEffect, useRef } from "react";
 import { Animated } from "react-native";
-import { animate } from "@breathly/utils/animate";
-import { interpolateScale } from "@breathly/utils/interpolate";
-import { times } from "@breathly/utils/times";
-import { useOnUpdate } from "@breathly/utils/use-on-update";
+import { animate } from "@nowoo/utils/animate";
+import { interpolateScale } from "@nowoo/utils/interpolate";
+import { times } from "@nowoo/utils/times";
+import { useOnUpdate } from "@nowoo/utils/use-on-update";
 
 const dotSize = Math.floor(4);
 const fadeInAnimDuration = 400;
