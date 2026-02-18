@@ -37,22 +37,67 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
   const customSettings = route.params?.customSettings;
   const mainGuidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
   const mainFrequencyTone = useSettingsStore((state) => state.frequencyTone);
+  const scheduleRiseStartTime = useSettingsStore((state) => state.scheduleRiseStartTime);
+  const scheduleRiseEndTime = useSettingsStore((state) => state.scheduleRiseEndTime);
+  const scheduleResetStartTime = useSettingsStore((state) => state.scheduleResetStartTime);
+  const scheduleResetEndTime = useSettingsStore((state) => state.scheduleResetEndTime);
+  const scheduleRestoreStartTime = useSettingsStore((state) => state.scheduleRestoreStartTime);
+  const scheduleRestoreEndTime = useSettingsStore((state) => state.scheduleRestoreEndTime);
+  const scheduleRiseGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRiseGuidedBreathingVoice);
+  const scheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.scheduleResetGuidedBreathingVoice);
+  const scheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRestoreGuidedBreathingVoice);
   
-  // Use custom settings if provided, otherwise use main settings
-  const guidedBreathingVoice = customSettings?.useDefaults 
-    ? mainGuidedBreathingVoice 
-    : (customSettings?.guidedBreathingVoice ?? mainGuidedBreathingVoice);
+  // Use custom settings if provided; otherwise check schedule overrides; else use main settings
+  const guidedBreathingVoice = (() => {
+    if (customSettings) {
+      return customSettings.useDefaults 
+        ? mainGuidedBreathingVoice 
+        : (customSettings.guidedBreathingVoice ?? mainGuidedBreathingVoice);
+    }
+    // No custom session - check if active schedule has guided breathing override
+    const activeCategory = getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+    if (activeCategory === "rise" && scheduleRiseGuidedBreathingVoice !== null) {
+      return scheduleRiseGuidedBreathingVoice;
+    }
+    if (activeCategory === "reset" && scheduleResetGuidedBreathingVoice !== null) {
+      return scheduleResetGuidedBreathingVoice;
+    }
+    if (activeCategory === "restore" && scheduleRestoreGuidedBreathingVoice !== null) {
+      return scheduleRestoreGuidedBreathingVoice;
+    }
+    return mainGuidedBreathingVoice;
+  })();
   const frequencyTone = customSettings?.useDefaults
     ? mainFrequencyTone
     : (customSettings?.frequencyTone ?? mainFrequencyTone);
+  
+  // When no custom session and we're in a schedule window, use schedule tone+noise (Rise/Reset/Restore)
+  const scheduleCategoryForAudio = (() => {
+    if (customSettings) return null;
+    return getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+  })();
   
   const [status, setStatus] = useState<ExerciseStatus>("interlude");
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
 
-  const { playExerciseStepAudio, playExerciseCompletedAudio } =
+  const { playExerciseStepAudio, playExerciseCompletedAudio, playSessionTransitionClips, whenAudioReady } =
     useExerciseAudio(guidedBreathingVoice);
-  useFrequencyTone(frequencyTone, status === "running");
+  useFrequencyTone(frequencyTone, status === "running", scheduleCategoryForAudio);
 
   useKeepAwake();
 
@@ -81,7 +126,13 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
         backgroundColor: colorScheme === "dark" ? "#1a1a1a" : undefined,
       }}
     >
-      {status === "interlude" && <ExerciseInterlude onComplete={handleInterludeComplete} />}
+      {status === "interlude" && (
+        <ExerciseInterlude
+          onComplete={handleInterludeComplete}
+          onCountdownStart={playSessionTransitionClips}
+          whenAudioReady={whenAudioReady}
+        />
+      )}
       {status === "running" && (
         <>
           {colorScheme === "dark" && (
@@ -147,6 +198,15 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
     timeLimit: mainTimeLimit,
     vibrationEnabled: mainVibrationEnabled,
     customPatterns,
+    scheduleRiseStartTime,
+    scheduleRiseEndTime,
+    scheduleResetStartTime,
+    scheduleResetEndTime,
+    scheduleRestoreStartTime,
+    scheduleRestoreEndTime,
+    scheduleRiseVibrationEnabled,
+    scheduleResetVibrationEnabled,
+    scheduleRestoreVibrationEnabled,
   } = useSettingsStore();
   const defaultSelectedPatternSteps = useSelectedPatternSteps();
   const [unmountContentAnimVal] = useState(new Animated.Value(1));
@@ -165,10 +225,27 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
 
   const { currentStep, exerciseAnimVal, textAnimVal } = useExerciseLoop(stepsMetadata);
 
-  // Get effective settings - use custom if provided and not using defaults, otherwise use main settings
-  const effectiveVibrationEnabled = customSettings?.useDefaults
-    ? mainVibrationEnabled
-    : (customSettings?.vibrationEnabled ?? mainVibrationEnabled);
+  // Get effective settings - custom session, schedule override, or main
+  const effectiveVibrationEnabled = (() => {
+    if (customSettings?.useDefaults) return mainVibrationEnabled;
+    if (customSettings) return customSettings.vibrationEnabled ?? mainVibrationEnabled;
+    // No custom session - check schedule override
+    const activeCategory = getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+    if (activeCategory === "rise" && scheduleRiseVibrationEnabled !== null)
+      return scheduleRiseVibrationEnabled;
+    if (activeCategory === "reset" && scheduleResetVibrationEnabled !== null)
+      return scheduleResetVibrationEnabled;
+    if (activeCategory === "restore" && scheduleRestoreVibrationEnabled !== null)
+      return scheduleRestoreVibrationEnabled;
+    return mainVibrationEnabled;
+  })();
   
   const effectiveTimeLimit = customSettings?.useDefaults
     ? mainTimeLimit

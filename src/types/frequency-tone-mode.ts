@@ -1,3 +1,10 @@
-export type FrequencyToneMode = "disabled" | "852hz" | "777hz" | "432hz";
+export type FrequencyToneMode =
+  | "disabled"
+  | "200hz"
+  | "136hz"
+  | "100hz"
+  | "brown"
+  | "green"
+  | "pink";
 
 

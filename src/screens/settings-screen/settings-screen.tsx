@@ -130,10 +130,7 @@ export const SettingsRootScreen: FC<
               value={guidedBreathingVoice}
               options={
                 [
-                  { value: "isabella", label: "Isabella" },
-                  { value: "jameson", label: "Jameson" },
-                  { value: "clara", label: "Clara" },
-                  { value: "marcus", label: "Marcus" },
+                  { value: "female", label: "Female" },
                   { value: "bell", label: "Bell" },
                   { value: "disabled", label: "Disabled" },
                 ] as { value: GuidedBreathingMode; label: string }[] // TODO:// Move to satisfies once prettier supports it
@@ -145,14 +142,15 @@ export const SettingsRootScreen: FC<
               iconName="musical-notes"
               iconBackgroundColor="#60a5fa"
               value={frequencyTone}
-              options={
-                [
-                  { value: "852hz", label: "852 hz" },
-                  { value: "777hz", label: "777 hz" },
-                  { value: "432hz", label: "432 hz" },
-                  { value: "disabled", label: "Disabled" },
-                ] as { value: FrequencyToneMode; label: string }[]
-              }
+              options={[
+                { value: "200hz", label: "200 Hz" },
+                { value: "136hz", label: "136 Hz" },
+                { value: "100hz", label: "100 Hz" },
+                { value: "brown", label: "Brown noise" },
+                { value: "green", label: "Green noise" },
+                { value: "pink", label: "Pink noise" },
+                { value: "disabled", label: "Disabled" },
+              ] as { value: FrequencyToneMode; label: string }[]}
               onValueChange={setFrequencyTone}
             />
           </SettingsUI.Section>
@@ -614,10 +612,7 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
             value={scheduleRiseGuidedBreathingVoice ?? guidedBreathingVoice}
             options={
               [
-                { value: "isabella", label: "Isabella" },
-                { value: "jameson", label: "Jameson" },
-                { value: "clara", label: "Clara" },
-                { value: "marcus", label: "Marcus" },
+                { value: "female", label: "Female" },
                 { value: "bell", label: "Bell" },
                 { value: "disabled", label: "Disabled" },
               ] as { value: GuidedBreathingMode; label: string }[]
@@ -821,10 +816,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             value={scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice}
             options={
               [
-                { value: "isabella", label: "Isabella" },
-                { value: "jameson", label: "Jameson" },
-                { value: "clara", label: "Clara" },
-                { value: "marcus", label: "Marcus" },
+                { value: "female", label: "Female" },
                 { value: "bell", label: "Bell" },
                 { value: "disabled", label: "Disabled" },
               ] as { value: GuidedBreathingMode; label: string }[]
@@ -1028,10 +1020,7 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
             value={scheduleRestoreGuidedBreathingVoice ?? guidedBreathingVoice}
             options={
               [
-                { value: "isabella", label: "Isabella" },
-                { value: "jameson", label: "Jameson" },
-                { value: "clara", label: "Clara" },
-                { value: "marcus", label: "Marcus" },
+                { value: "female", label: "Female" },
                 { value: "bell", label: "Bell" },
                 { value: "disabled", label: "Disabled" },
               ] as { value: GuidedBreathingMode; label: string }[]

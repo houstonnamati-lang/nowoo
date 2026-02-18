@@ -99,7 +99,7 @@ export const useSettingsStore = create<SettingsStore>()(
         },
         selectedPatternPresetId: "square",
         setSelectedPatternPresetId: (selectedPatternPresetId) => set({ selectedPatternPresetId }),
-        guidedBreathingVoice: "isabella",
+        guidedBreathingVoice: "female",
         setGuidedBreathingVoice: (guidedBreathingVoice) => set({ guidedBreathingVoice }),
         frequencyTone: "disabled",
         setFrequencyTone: (frequencyTone) => set({ frequencyTone }),
@@ -178,14 +178,27 @@ export const useSettingsStore = create<SettingsStore>()(
           // Migrate old voice values to new ones
           if (persistedState?.guidedBreathingVoice) {
             const oldVoice = persistedState.guidedBreathingVoice;
-            // Map old values to new defaults
-            if (oldVoice === "paul" || oldVoice === "laura") {
-              persistedState.guidedBreathingVoice = "isabella";
+            if (
+              oldVoice === "paul" ||
+              oldVoice === "laura" ||
+              oldVoice === "isabella" ||
+              oldVoice === "jameson" ||
+              oldVoice === "clara" ||
+              oldVoice === "marcus"
+            ) {
+              persistedState.guidedBreathingVoice = "female";
+            }
+          }
+          // Migrate old frequency tone options (852hz, 777hz, 432hz) to new options
+          if (persistedState?.frequencyTone) {
+            const old = persistedState.frequencyTone;
+            if (old === "852hz" || old === "777hz" || old === "432hz") {
+              persistedState.frequencyTone = "200hz";
             }
           }
           return persistedState;
         },
-        version: 1,
+        version: 2,
       }
     )
   )

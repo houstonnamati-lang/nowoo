@@ -7,12 +7,14 @@ import { useOnMount } from "@breathly/utils/use-on-mount";
 
 interface Props {
   onComplete: () => void;
+  onCountdownStart?: () => void;
+  whenAudioReady?: () => Promise<void>;
 }
 
 const interludeInitialDelay = 600;
 const interludeAnimDuration = 400;
 
-export const ExerciseInterlude: FC<Props> = ({ onComplete }) => {
+export const ExerciseInterlude: FC<Props> = ({ onComplete, onCountdownStart, whenAudioReady }) => {
   const isMountedRef = useRef(true);
   const containerAnimVal = useRef(new Animated.Value(1)).current;
   const subtitleAnimVal = useRef(new Animated.Value(0)).current;
@@ -30,6 +32,8 @@ export const ExerciseInterlude: FC<Props> = ({ onComplete }) => {
 
   const animateInterlude = async () => {
     await delay(interludeInitialDelay);
+    await whenAudioReady?.();
+    onCountdownStart?.();
     showSubtitleAnimation.start(async ({ finished }) => {
       if (!finished) return;
       await delay(1000);

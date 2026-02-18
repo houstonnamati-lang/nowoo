@@ -4,25 +4,50 @@ import {
   startFrequencyTone,
   stopFrequencyTone,
   releaseFrequencyTone,
+  setupScheduleBackground,
+  startScheduleBackground,
+  stopScheduleBackground,
+  releaseScheduleBackground,
+  ScheduleCategory,
 } from "@breathly/services/frequency-tone";
 import { FrequencyToneMode } from "@breathly/types/frequency-tone-mode";
 
-export const useFrequencyTone = (frequencyToneMode: FrequencyToneMode, isRunning: boolean) => {
+export const useFrequencyTone = (
+  frequencyToneMode: FrequencyToneMode,
+  isRunning: boolean,
+  scheduleCategory: ScheduleCategory | null = null
+) => {
+  // When in a schedule window (category set), use schedule tone+noise; otherwise use picker selection
+  const useSchedule = scheduleCategory !== null;
+
   useEffect(() => {
+    if (useSchedule) {
+      setupScheduleBackground(scheduleCategory!);
+      return () => {
+        releaseScheduleBackground();
+      };
+    }
     if (frequencyToneMode !== "disabled") {
       setupFrequencyTone(frequencyToneMode);
       return () => {
         releaseFrequencyTone();
       };
     }
-  }, [frequencyToneMode]);
+  }, [frequencyToneMode, useSchedule, scheduleCategory]);
 
   useEffect(() => {
-    if (frequencyToneMode !== "disabled" && isRunning) {
-      startFrequencyTone();
+    if (useSchedule) {
+      if (isRunning) {
+        startScheduleBackground();
+      } else {
+        stopScheduleBackground();
+      }
     } else {
-      stopFrequencyTone();
+      if (frequencyToneMode !== "disabled" && isRunning) {
+        startFrequencyTone();
+      } else {
+        stopFrequencyTone();
+      }
     }
-  }, [frequencyToneMode, isRunning]);
+  }, [frequencyToneMode, useSchedule, scheduleCategory, isRunning]);
 };
-
