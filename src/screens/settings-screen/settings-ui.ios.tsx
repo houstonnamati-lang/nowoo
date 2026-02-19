@@ -63,6 +63,7 @@ export interface BaseItemProps {
   secondaryLabel?: string;
   iconName?: any;
   iconBackgroundColor?: string;
+  labelRight?: React.ReactNode;
   style?: ViewStyle;
 }
 
@@ -71,32 +72,57 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
   iconName,
   iconBackgroundColor,
   secondaryLabel,
+  labelRight,
   children,
 }) => {
   const { colorScheme } = useColorScheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingLeft: 16, paddingRight: 28 }}>
       {(iconName || label) && (
-        <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, flex: 1, maxWidth: "50%", marginRight: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", flexShrink: 1, flex: 1, minWidth: 0, marginRight: 8 }}>
           {iconName && (
             <View style={{ marginRight: 8, borderRadius: 6, backgroundColor: iconBackgroundColor }}>
               <Ionicons style={{ padding: 4 }} name={iconName} size={18} color="white" />
             </View>
           )}
-          <View style={{ flexDirection: "column", flexShrink: 1, flex: 1 }}>
-            <Text 
-              style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}
-              numberOfLines={2}
-            >
-              {label}
-            </Text>
-            {secondaryLabel && (
-              <Text
-                style={{ color: colorScheme === "dark" ? "#999999" : undefined }}
-                numberOfLines={2}
-              >
-                {secondaryLabel}
-              </Text>
+          <View style={{ flexDirection: "column", flexShrink: 1, flex: 1, minWidth: 0 }}>
+            {labelRight != null ? (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 0, marginBottom: secondaryLabel ? 2 : 0 }}>
+                  <Text
+                    style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}
+                    numberOfLines={2}
+                  >
+                    {label}
+                  </Text>
+                  <View style={{ flexShrink: 0, marginLeft: 6 }}>{labelRight}</View>
+                </View>
+                {secondaryLabel && (
+                  <Text
+                    style={{ color: colorScheme === "dark" ? "#999999" : undefined }}
+                    numberOfLines={2}
+                  >
+                    {secondaryLabel}
+                  </Text>
+                )}
+              </>
+            ) : (
+              <>
+                <Text
+                  style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}
+                  numberOfLines={2}
+                >
+                  {label}
+                </Text>
+                {secondaryLabel && (
+                  <Text
+                    style={{ color: colorScheme === "dark" ? "#999999" : undefined }}
+                    numberOfLines={2}
+                  >
+                    {secondaryLabel}
+                  </Text>
+                )}
+              </>
             )}
           </View>
         </View>
@@ -265,26 +291,18 @@ export const RadioButtonItem: FC<RadioButtonItemProps> = ({
   selected,
   onPress,
   disabled,
+  labelRight,
   ...baseProps
 }) => {
   const { colorScheme } = useColorScheme();
   return (
-    <BaseItem {...baseProps}>
+    <BaseItem {...baseProps} label={label} secondaryLabel={secondaryLabel} labelRight={labelRight}>
       <Pressable
         onPress={onPress}
-        className="flex-shrink flex-row items-center py-2"
-        style={{ opacity: disabled ? 0.5 : 1 }}
+        style={{ opacity: disabled ? 0.5 : 1, paddingVertical: 8 }}
         disabled={disabled}
       >
-        <View className="flex-shrink">
-          <Text className="dark:text-white" style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}>
-            {label}
-          </Text>
-          <Text style={{ color: colorScheme === "dark" ? "#999999" : undefined }}>
-            {secondaryLabel}
-          </Text>
-        </View>
-        <View style={{ width: 28, alignItems: "center", justifyContent: "center", marginRight: 4 }}>
+        <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
           {selected && (
             <Ionicons name="checkmark-circle" size={18} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} />
           )}
@@ -318,7 +336,10 @@ export const MultiSelectItem: FC<MultiSelectItemProps> = ({
     selectedValues.length === 0
       ? "None selected"
       : selectedValues.length === 1
-      ? options.find((opt) => opt.value === selectedValues[0])?.label || "1 selected"
+      ? (() => {
+          const opt = options.find((o) => o.value === selectedValues[0]);
+          return opt && typeof opt.label === "string" ? opt.label : "1 selected";
+        })()
       : `${selectedValues.length} selected`;
 
   return (
@@ -363,9 +384,13 @@ export const MultiSelectItem: FC<MultiSelectItemProps> = ({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}>
-                      {option.label}
-                    </Text>
+                    {typeof option.label === "string" ? (
+                      <Text style={{ color: colorScheme === "dark" ? "#ffffff" : undefined }}>
+                        {option.label}
+                      </Text>
+                    ) : (
+                      <View style={{ flex: 1, minWidth: 0 }}>{option.label}</View>
+                    )}
                     <Ionicons
                       name={isSelected ? "checkbox" : "checkbox-outline"}
                       size={20}

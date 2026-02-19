@@ -108,10 +108,31 @@ export async function releaseFrequencyTone() {
   }
 }
 
+// Delays to reduce iOS AVFoundation -11819 errors (teardown/load race)
+const SCHEDULE_RELEASE_DELAY_MS = 300;
+const SCHEDULE_BETWEEN_LOADS_MS = 150;
+const SCHEDULE_RETRY_DELAY_MS = 600;
+
+async function createSoundWithRetry(
+  source: number,
+  options: { shouldPlay: boolean; isLooping: boolean; volume: number }
+): Promise<Audio.Sound> {
+  try {
+    const { sound } = await Audio.Sound.createAsync(source, options);
+    return sound;
+  } catch (err) {
+    await new Promise((r) => setTimeout(r, SCHEDULE_RETRY_DELAY_MS));
+    const { sound } = await Audio.Sound.createAsync(source, options);
+    return sound;
+  }
+}
+
 // Schedule-specific: Rise = 200Hz + pink noise (low), Reset = 136Hz + brown, Restore = 100Hz + brown
 export async function setupScheduleBackground(category: ScheduleCategory) {
   try {
     await releaseScheduleBackground();
+    await new Promise((r) => setTimeout(r, SCHEDULE_RELEASE_DELAY_MS));
+
     const toneAsset =
       category === "rise"
         ? sounds.frequency200hz
@@ -126,21 +147,21 @@ export async function setupScheduleBackground(category: ScheduleCategory) {
       category === "restore" ? SCHEDULE_TONE_VOLUME_100HZ : SCHEDULE_TONE_VOLUME;
     scheduleNoiseTargetVolume = noiseVolume;
 
-    const { sound: toneSound } = await Audio.Sound.createAsync(toneAsset, {
+    scheduleToneSound = await createSoundWithRetry(toneAsset, {
       shouldPlay: false,
       isLooping: true,
       volume: scheduleToneTargetVolume,
     });
-    scheduleToneSound = toneSound;
 
-    const { sound: noiseSound } = await Audio.Sound.createAsync(noiseAsset, {
+    await new Promise((r) => setTimeout(r, SCHEDULE_BETWEEN_LOADS_MS));
+    scheduleNoiseSound = await createSoundWithRetry(noiseAsset, {
       shouldPlay: false,
       isLooping: true,
       volume: noiseVolume,
     });
-    scheduleNoiseSound = noiseSound;
   } catch (error) {
     console.error("Error setting up schedule background:", error);
+    await releaseScheduleBackground();
   }
 }
 
@@ -173,13 +194,19 @@ export async function stopScheduleBackground() {
 }
 
 export async function releaseScheduleBackground() {
-  if (scheduleToneSound) {
-    await scheduleToneSound.unloadAsync();
-    scheduleToneSound = undefined;
-  }
-  if (scheduleNoiseSound) {
-    await scheduleNoiseSound.unloadAsync();
-    scheduleNoiseSound = undefined;
-  }
+  const tone = scheduleToneSound;
+  const noise = scheduleNoiseSound;
+  scheduleToneSound = undefined;
+  scheduleNoiseSound = undefined;
   schedulePlaying = false;
+  try {
+    if (tone) await tone.unloadAsync();
+  } catch (e) {
+    // Ignore unload errors so we always try to release the other
+  }
+  try {
+    if (noise) await noise.unloadAsync();
+  } catch (e) {
+    // Ignore unload errors
+  }
 }

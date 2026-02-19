@@ -81,6 +81,22 @@ interface SettingsStore {
   setScheduleResetColor: (color: string | null) => unknown;
   scheduleRestoreColor: string | null;
   setScheduleRestoreColor: (color: string | null) => unknown;
+  scheduleRiseBackgroundColor: string | null; // null = use main exercise background
+  setScheduleRiseBackgroundColor: (color: string | null) => unknown;
+  scheduleRiseBackgroundImage: string | null;
+  setScheduleRiseBackgroundImage: (image: string | null) => unknown;
+  scheduleResetBackgroundColor: string | null;
+  setScheduleResetBackgroundColor: (color: string | null) => unknown;
+  scheduleResetBackgroundImage: string | null;
+  setScheduleResetBackgroundImage: (image: string | null) => unknown;
+  scheduleRestoreBackgroundColor: string | null;
+  setScheduleRestoreBackgroundColor: (color: string | null) => unknown;
+  scheduleRestoreBackgroundImage: string | null;
+  setScheduleRestoreBackgroundImage: (image: string | null) => unknown;
+  exerciseBackgroundColor: string; // Hex color for exercise screen background
+  setExerciseBackgroundColor: (color: string) => unknown;
+  exerciseBackgroundImage: string | null; // Image key from images.screenBgs, null for no image
+  setExerciseBackgroundImage: (image: string | null) => unknown;
   customPatterns: PatternPreset[];
   addCustomPattern: (pattern: PatternPreset) => unknown;
   removeCustomPattern: (patternId: string) => unknown;
@@ -176,6 +192,22 @@ export const useSettingsStore = create<SettingsStore>()(
         setScheduleResetColor: (color) => set({ scheduleResetColor: color }),
         scheduleRestoreColor: null,
         setScheduleRestoreColor: (color) => set({ scheduleRestoreColor: color }),
+        scheduleRiseBackgroundColor: null,
+        setScheduleRiseBackgroundColor: (color) => set({ scheduleRiseBackgroundColor: color }),
+        scheduleRiseBackgroundImage: null,
+        setScheduleRiseBackgroundImage: (image) => set({ scheduleRiseBackgroundImage: image }),
+        scheduleResetBackgroundColor: null,
+        setScheduleResetBackgroundColor: (color) => set({ scheduleResetBackgroundColor: color }),
+        scheduleResetBackgroundImage: null,
+        setScheduleResetBackgroundImage: (image) => set({ scheduleResetBackgroundImage: image }),
+        scheduleRestoreBackgroundColor: null,
+        setScheduleRestoreBackgroundColor: (color) => set({ scheduleRestoreBackgroundColor: color }),
+        scheduleRestoreBackgroundImage: null,
+        setScheduleRestoreBackgroundImage: (image) => set({ scheduleRestoreBackgroundImage: image }),
+        exerciseBackgroundColor: "#1a1a1a", // Default dark background
+        setExerciseBackgroundColor: (color) => set({ exerciseBackgroundColor: color }),
+        exerciseBackgroundImage: null,
+        setExerciseBackgroundImage: (image) => set({ exerciseBackgroundImage: image }),
         customPatterns: [],
         addCustomPattern: (pattern) =>
           set((state) => ({

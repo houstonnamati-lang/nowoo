@@ -33,10 +33,11 @@ const Section: React.FC<PropsWithChildren<SectionProps>> = ({
 };
 
 export interface BaseItemProps {
-  label?: string;
+  label?: string | React.ReactNode;
   secondaryLabel?: string;
   style?: ViewStyle;
   leftItem?: React.ReactNode;
+  labelRight?: React.ReactNode;
   onPress?: () => void;
   disabled?: boolean;
 }
@@ -47,6 +48,7 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
   onPress,
   style,
   leftItem,
+  labelRight,
   disabled,
   children,
 }) => {
@@ -58,16 +60,32 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
       disabled={disabled || !onPress}
     >
       {leftItem && <View className="w-[72px] items-center justify-center">{leftItem}</View>}
-      {label && (
-        <View className="grow-1 flex-1 shrink flex-col justify-center pr-4">
-          <Text className="text-slate-800 dark:text-white">{label}</Text>
-          {secondaryLabel && <Text className="text-sm text-slate-500">{secondaryLabel}</Text>}
+      {label != null && (
+        <View className="grow-1 flex-1 flex-col justify-start pr-4" style={{ minWidth: 0 }}>
+          {typeof label === "string" ? (
+            labelRight != null ? (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 0, marginBottom: secondaryLabel ? 2 : 0 }}>
+                  <Text className="text-slate-800 dark:text-white">{label}</Text>
+                  <View style={{ flexShrink: 0, marginLeft: 6 }}>{labelRight}</View>
+                </View>
+                {secondaryLabel && <Text className="text-sm text-slate-500">{secondaryLabel}</Text>}
+              </>
+            ) : (
+              <View className="shrink flex-col">
+                <Text className="text-slate-800 dark:text-white">{label}</Text>
+                {secondaryLabel && <Text className="text-sm text-slate-500">{secondaryLabel}</Text>}
+              </View>
+            )
+          ) : (
+            <View style={{ flex: 1, minWidth: 0 }}>{label}</View>
+          )}
         </View>
       )}
       {children}
     </TouchableOpacity>
   );
-};
+}
 
 const LinkItem: FC<LinkItemProps> = ({ value, onPress, ...baseProps }) => {
   return <BaseItem {...baseProps} secondaryLabel={value} onPress={onPress} />;
@@ -120,11 +138,13 @@ const RadioButtonItem: FC<RadioButtonItemProps> = ({
   selected,
   disabled,
   onPress,
+  labelRight,
   ...baseProps
 }) => {
   return (
     <BaseItem
       {...baseProps}
+      labelRight={labelRight}
       onPress={onPress}
       disabled={disabled}
       leftItem={<RadioButton selected={selected} disabled={disabled} onPress={onPress} />}
@@ -232,7 +252,10 @@ const MultiSelectItem: FC<MultiSelectItemProps> = ({
     selectedValues.length === 0
       ? "None selected"
       : selectedValues.length === 1
-      ? options.find((opt) => opt.value === selectedValues[0])?.label || "1 selected"
+      ? (() => {
+          const opt = options.find((o) => o.value === selectedValues[0]);
+          return opt && typeof opt.label === "string" ? opt.label : "1 selected";
+        })()
       : `${selectedValues.length} selected`;
 
   return (

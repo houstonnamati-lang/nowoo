@@ -40,11 +40,13 @@ export interface RadioButtonItemProps extends CommonItemProps {
   selected?: boolean;
   onPress?: () => void;
   disabled?: boolean;
+  /** Optional node (e.g. schedule dots) shown to the right of the label */
+  labelRight?: React.ReactNode;
 }
 
 export interface MultiSelectItemProps extends CommonItemProps {
   selectedValues: string[];
-  options: { label: string; value: string }[];
+  options: { label: string | React.ReactNode; value: string }[];
   onValueChange: (values: string[]) => unknown;
 }
 

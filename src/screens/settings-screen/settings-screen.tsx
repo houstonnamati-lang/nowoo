@@ -27,7 +27,9 @@ import {
   releaseFrequencyTone,
   setToneVolumeMultiplier,
 } from "@nowoo/services/frequency-tone";
+import { ScheduleDots } from "@nowoo/utils/pattern-schedule-dots";
 import { ColorPicker } from "./color-picker";
+import { BackgroundPicker } from "./background-picker";
 
 const customDurationLimits = [
   [ms("1 sec"), ms("99 sec")],
@@ -95,6 +97,10 @@ export const SettingsRootScreen: FC<
   const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
   const setDefaultToneVolume = useSettingsStore((state) => state.setDefaultToneVolume);
   const frequencyTone = useSettingsStore((state) => state.frequencyTone);
+  const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
+  const setExerciseBackgroundColor = useSettingsStore((state) => state.setExerciseBackgroundColor);
+  const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
+  const setExerciseBackgroundImage = useSettingsStore((state) => state.setExerciseBackgroundImage);
   const setFrequencyTone = useSettingsStore((state) => state.setFrequencyTone);
   const timeLimit = useSettingsStore((state) => state.timeLimit);
   const setTimeLimit = useSettingsStore((state) => state.setTimeLimit);
@@ -180,130 +186,7 @@ export const SettingsRootScreen: FC<
           backgroundColor: bgColor,
         }}
       >
-        <SettingsUI.Section label="Breathing pattern">
-            <SettingsUI.LinkItem
-              label="Pattern"
-              iconName="body"
-              iconBackgroundColor="#bfdbfe"
-              value={(() => {
-                // Check if the name already contains intervals (like "Custom (4-2-4-2)")
-                const hasIntervalsInName = selectedPatternName.includes("(") && selectedPatternName.includes(")");
-                if (hasIntervalsInName) {
-                  return selectedPatternName;
-                }
-                return `${selectedPatternName} (${selectedPatternDurations
-                  .map((duration) => duration / ms("1 sec"))
-                  .join("-")})`;
-              })()}
-              onPress={() => navigation.navigate("SettingsPatternPicker")}
-            />
-          </SettingsUI.Section>
-          <SettingsUI.Section label="Sounds">
-            <SettingsUI.PickerItem
-              label="Guided breathing"
-              iconName="volume-medium"
-              iconBackgroundColor="#fdba74"
-              value={guidedBreathingVoice}
-              options={
-                [
-                  { value: "female", label: "Female" },
-                  { value: "bell", label: "Bell" },
-                  { value: "disabled", label: "Disabled" },
-                ] as { value: GuidedBreathingMode; label: string }[] // TODO:// Move to satisfies once prettier supports it
-              }
-              onValueChange={setGuidedBreathingVoice}
-            />
-            <SettingsUI.PickerItem
-              label="Calming frequency"
-              iconName="musical-notes"
-              iconBackgroundColor="#60a5fa"
-              value={frequencyTone}
-              options={[
-                { value: "200hz", label: "200 Hz" },
-                { value: "136hz", label: "136 Hz" },
-                { value: "100hz", label: "100 Hz" },
-                { value: "brown", label: "Brown noise" },
-                { value: "green", label: "Green noise" },
-                { value: "pink", label: "Pink noise" },
-                { value: "disabled", label: "Disabled" },
-              ] as { value: FrequencyToneMode; label: string }[]}
-              onValueChange={setFrequencyTone}
-            />
-            <VolumeSliderRow
-              label="Voice volume"
-              value={defaultVoiceVolume}
-              onValueChange={(v) => {
-                setDefaultVoiceVolume(v);
-                playVoiceVolumePreview(v);
-              }}
-              colorScheme={colorScheme}
-            />
-            <VolumeSliderRow
-              label="Sound volume"
-              value={defaultToneVolume}
-              onValueChange={(v) => {
-                setDefaultToneVolume(v);
-                setToneVolumeMultiplier(v);
-              }}
-              onSlidingStart={handleSoundSliderStart}
-              onSlidingComplete={handleSoundSliderComplete}
-              colorScheme={colorScheme}
-            />
-          </SettingsUI.Section>
-          <SettingsUI.Section label="Appearance">
-            <SettingsUI.SwitchItem
-              label="Use system theme"
-              secondaryLabel="Follow system light/dark mode"
-              iconName="moon"
-              iconBackgroundColor="#a5b4fc"
-              value={shouldFollowSystemDarkMode}
-              onValueChange={setShouldFollowSystemDarkMode}
-            />
-            {!shouldFollowSystemDarkMode && (
-              <SettingsUI.PickerItem
-                label="Theme"
-                iconName="color-palette"
-                iconBackgroundColor="#d8b4fe"
-                options={[
-                  { value: "light", label: "Light theme" },
-                  { value: "dark", label: "Dark theme" },
-                ]}
-                value={theme}
-                onValueChange={setTheme}
-              />
-            )}
-          </SettingsUI.Section>
-          <SettingsUI.Section label="Haptics">
-            <SettingsUI.SwitchItem
-              label="Vibration"
-              secondaryLabel="Vibrate for step indication"
-              iconName="ellipse"
-              iconBackgroundColor="aquamarine"
-              value={vibrationEnabled}
-              onValueChange={setVibrationEnabled}
-            />
-          </SettingsUI.Section>
-          <SettingsUI.Section label="Timer">
-            <SettingsUI.StepperItem
-              label="Exercise timer"
-              secondaryLabel="Time limit in minutes"
-              value={timeLimit > 0 ? timeLimit / ms("1 min") : "∞"}
-              fractionDigits={1}
-              iconName="timer"
-              iconBackgroundColor="#fb7185"
-              onIncrease={() => {
-                const newLimit = Math.min(maxTimeLimit, timeLimit + ms("0.5 min"));
-                setTimeLimit(newLimit);
-              }}
-              onDecrease={() => {
-                const newLimit = Math.max(0, timeLimit - ms("0.5 min"));
-                setTimeLimit(newLimit);
-              }}
-              decreaseDisabled={timeLimit <= 0}
-              increaseDisabled={timeLimit >= maxTimeLimit}
-            />
-          </SettingsUI.Section>
-          <SettingsUI.Section label="Schedule" hideBottomBorderAndroid>
+        <SettingsUI.Section label="Schedule" hideBottomBorderAndroid>
             <SettingsUI.LinkItem
               label="Rise"
               iconName="sunny"
@@ -338,6 +221,56 @@ export const SettingsRootScreen: FC<
               onPress={() => navigation.navigate("SettingsScheduleRestore")}
             />
           </SettingsUI.Section>
+          <SettingsUI.Section label="Breathing pattern">
+            <SettingsUI.LinkItem
+              label="Pattern"
+              iconName="body"
+              iconBackgroundColor="#bfdbfe"
+              value={(() => {
+                // Check if the name already contains intervals (like "Custom (4-2-4-2)")
+                const hasIntervalsInName = selectedPatternName.includes("(") && selectedPatternName.includes(")");
+                if (hasIntervalsInName) {
+                  return selectedPatternName;
+                }
+                return `${selectedPatternName} (${selectedPatternDurations
+                  .map((duration) => duration / ms("1 sec"))
+                  .join("-")})`;
+              })()}
+              onPress={() => navigation.navigate("SettingsPatternPicker")}
+            />
+          </SettingsUI.Section>
+          <SettingsUI.Section label="Default settings">
+            <SettingsUI.LinkItem
+              label="Default settings"
+              iconName="options"
+              iconBackgroundColor="#94a3b8"
+              value="Sounds, Background, Haptics, Timer"
+              onPress={() => navigation.navigate("SettingsDefaultSettings")}
+            />
+          </SettingsUI.Section>
+          <SettingsUI.Section label="Appearance">
+            <SettingsUI.SwitchItem
+              label="Use system theme"
+              secondaryLabel="Follow system light/dark mode"
+              iconName="moon"
+              iconBackgroundColor="#a5b4fc"
+              value={shouldFollowSystemDarkMode}
+              onValueChange={setShouldFollowSystemDarkMode}
+            />
+            {!shouldFollowSystemDarkMode && (
+              <SettingsUI.PickerItem
+                label="Theme"
+                iconName="color-palette"
+                iconBackgroundColor="#d8b4fe"
+                options={[
+                  { value: "light", label: "Light theme" },
+                  { value: "dark", label: "Dark theme" },
+                ]}
+                value={theme}
+                onValueChange={setTheme}
+              />
+            )}
+          </SettingsUI.Section>
           <SettingsUI.Section label="Development">
             <SettingsUI.LinkItem
               label="Reset Authentication"
@@ -360,6 +293,152 @@ export const SettingsRootScreen: FC<
             />
           </SettingsUI.Section>
         </ScrollView>
+    </View>
+  );
+};
+
+type DefaultSettingsScreenProps = NativeStackScreenProps<
+  SettingsStackParamList,
+  "SettingsDefaultSettings"
+>;
+
+export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () => {
+  const { colorScheme } = useColorScheme();
+  const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
+  const setGuidedBreathingVoice = useSettingsStore((state) => state.setGuidedBreathingVoice);
+  const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
+  const setDefaultVoiceVolume = useSettingsStore((state) => state.setDefaultVoiceVolume);
+  const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
+  const setDefaultToneVolume = useSettingsStore((state) => state.setDefaultToneVolume);
+  const frequencyTone = useSettingsStore((state) => state.frequencyTone);
+  const setFrequencyTone = useSettingsStore((state) => state.setFrequencyTone);
+  const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
+  const setExerciseBackgroundColor = useSettingsStore((state) => state.setExerciseBackgroundColor);
+  const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
+  const setExerciseBackgroundImage = useSettingsStore((state) => state.setExerciseBackgroundImage);
+  const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const setVibrationEnabled = useSettingsStore((state) => state.setVibrationEnabled);
+  const timeLimit = useSettingsStore((state) => state.timeLimit);
+  const setTimeLimit = useSettingsStore((state) => state.setTimeLimit);
+
+  const handleSoundSliderStart = async () => {
+    const mode = frequencyTone === "disabled" ? "200hz" : frequencyTone;
+    await setupFrequencyTone(mode);
+    setToneVolumeMultiplier(defaultToneVolume);
+    await startFrequencyTone();
+  };
+
+  const handleSoundSliderComplete = async () => {
+    await stopFrequencyTone();
+    await releaseFrequencyTone();
+  };
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],
+      }}
+    >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{
+          paddingHorizontal: Platform.OS === "android" ? undefined : 18,
+          paddingBottom: 20,
+        }}
+      >
+        <SettingsUI.Section label="Sounds">
+          <SettingsUI.PickerItem
+            label="Guided breathing"
+            iconName="volume-medium"
+            iconBackgroundColor="#fdba74"
+            value={guidedBreathingVoice}
+            options={
+              [
+                { value: "female", label: "Female" },
+                { value: "bell", label: "Bell" },
+                { value: "disabled", label: "Disabled" },
+              ] as { value: GuidedBreathingMode; label: string }[]
+            }
+            onValueChange={setGuidedBreathingVoice}
+          />
+          <SettingsUI.PickerItem
+            label="Calming frequency"
+            iconName="musical-notes"
+            iconBackgroundColor="#60a5fa"
+            value={frequencyTone}
+            options={[
+              { value: "200hz", label: "200 Hz" },
+              { value: "136hz", label: "136 Hz" },
+              { value: "100hz", label: "100 Hz" },
+              { value: "brown", label: "Brown noise" },
+              { value: "green", label: "Green noise" },
+              { value: "pink", label: "Pink noise" },
+              { value: "disabled", label: "Disabled" },
+            ] as { value: FrequencyToneMode; label: string }[]}
+            onValueChange={setFrequencyTone}
+          />
+          <VolumeSliderRow
+            label="Voice volume"
+            value={defaultVoiceVolume}
+            onValueChange={(v) => {
+              setDefaultVoiceVolume(v);
+              playVoiceVolumePreview(v);
+            }}
+            colorScheme={colorScheme}
+          />
+          <VolumeSliderRow
+            label="Sound volume"
+            value={defaultToneVolume}
+            onValueChange={(v) => {
+              setDefaultToneVolume(v);
+              setToneVolumeMultiplier(v);
+            }}
+            onSlidingStart={handleSoundSliderStart}
+            onSlidingComplete={handleSoundSliderComplete}
+            colorScheme={colorScheme}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Exercise Background">
+          <BackgroundPicker
+            backgroundColor={exerciseBackgroundColor}
+            onBackgroundColorChange={setExerciseBackgroundColor}
+            backgroundImage={exerciseBackgroundImage}
+            onBackgroundImageChange={setExerciseBackgroundImage}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Haptics">
+          <SettingsUI.SwitchItem
+            label="Vibration"
+            secondaryLabel="Vibrate for step indication"
+            iconName="ellipse"
+            iconBackgroundColor="aquamarine"
+            value={vibrationEnabled}
+            onValueChange={setVibrationEnabled}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
+          <SettingsUI.StepperItem
+            label="Exercise timer"
+            secondaryLabel="Time limit in minutes"
+            value={timeLimit > 0 ? timeLimit / ms("1 min") : "∞"}
+            fractionDigits={1}
+            iconName="timer"
+            iconBackgroundColor="#fb7185"
+            onIncrease={() => {
+              const newLimit = Math.min(maxTimeLimit, timeLimit + ms("0.5 min"));
+              setTimeLimit(newLimit);
+            }}
+            onDecrease={() => {
+              const newLimit = Math.max(0, timeLimit - ms("0.5 min"));
+              setTimeLimit(newLimit);
+            }}
+            decreaseDisabled={timeLimit <= 0}
+            increaseDisabled={timeLimit >= maxTimeLimit}
+          />
+        </SettingsUI.Section>
+      </ScrollView>
     </View>
   );
 };
@@ -505,6 +584,7 @@ export const SettingsPatternPickerScreen: FC<
                     .map((duration) => duration / ms("1 sec"))
                     .join("-")})`}
                   secondaryLabel={patternPreset.description}
+                  labelRight={<ScheduleDots patternId={patternPreset.id} />}
                 />
               );
             })}
@@ -620,6 +700,12 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const setScheduleRiseTimeLimitRandom = useSettingsStore((state) => state.setScheduleRiseTimeLimitRandom);
   const scheduleRiseColor = useSettingsStore((state) => state.scheduleRiseColor);
   const setScheduleRiseColor = useSettingsStore((state) => state.setScheduleRiseColor);
+  const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
+  const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
+  const scheduleRiseBackgroundColor = useSettingsStore((state) => state.scheduleRiseBackgroundColor);
+  const setScheduleRiseBackgroundColor = useSettingsStore((state) => state.setScheduleRiseBackgroundColor);
+  const scheduleRiseBackgroundImage = useSettingsStore((state) => state.scheduleRiseBackgroundImage);
+  const setScheduleRiseBackgroundImage = useSettingsStore((state) => state.setScheduleRiseBackgroundImage);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -714,9 +800,26 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
                 : `${preset.name} (${preset.steps
                     .map((duration) => duration / ms("1 sec"))
                     .join("-")})`;
+              const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
               return {
                 value: preset.id,
-                label: displayLabel,
+                label: isBuiltIn ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={{
+                        color: colorScheme === "dark" ? "#ffffff" : undefined,
+                        flexShrink: 0,
+                        marginRight: 6,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {displayLabel}
+                    </Text>
+                    <ScheduleDots patternId={preset.id} />
+                  </View>
+                ) : (
+                  displayLabel
+                ),
               };
             })}
             onValueChange={setScheduleRise}
@@ -750,6 +853,32 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
             iconName="color-palette"
             iconBackgroundColor="#fbbf24"
           />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Background">
+          <SettingsUI.SwitchItem
+            label="Override main background"
+            secondaryLabel="Use a different background during Rise time window"
+            iconName="color-palette"
+            iconBackgroundColor="#fbbf24"
+            value={scheduleRiseBackgroundColor !== null}
+            onValueChange={(value) => {
+              if (value) {
+                setScheduleRiseBackgroundColor(exerciseBackgroundColor);
+                setScheduleRiseBackgroundImage(exerciseBackgroundImage);
+              } else {
+                setScheduleRiseBackgroundColor(null);
+                setScheduleRiseBackgroundImage(null);
+              }
+            }}
+          />
+          {scheduleRiseBackgroundColor !== null && (
+            <BackgroundPicker
+              backgroundColor={scheduleRiseBackgroundColor}
+              onBackgroundColorChange={setScheduleRiseBackgroundColor}
+              backgroundImage={scheduleRiseBackgroundImage}
+              onBackgroundImageChange={setScheduleRiseBackgroundImage}
+            />
+          )}
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
           <SettingsUI.SwitchItem
@@ -835,6 +964,12 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const setScheduleResetTimeLimitRandom = useSettingsStore((state) => state.setScheduleResetTimeLimitRandom);
   const scheduleResetColor = useSettingsStore((state) => state.scheduleResetColor);
   const setScheduleResetColor = useSettingsStore((state) => state.setScheduleResetColor);
+  const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
+  const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
+  const scheduleResetBackgroundColor = useSettingsStore((state) => state.scheduleResetBackgroundColor);
+  const setScheduleResetBackgroundColor = useSettingsStore((state) => state.setScheduleResetBackgroundColor);
+  const scheduleResetBackgroundImage = useSettingsStore((state) => state.scheduleResetBackgroundImage);
+  const setScheduleResetBackgroundImage = useSettingsStore((state) => state.setScheduleResetBackgroundImage);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -929,9 +1064,26 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
                 : `${preset.name} (${preset.steps
                     .map((duration) => duration / ms("1 sec"))
                     .join("-")})`;
+              const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
               return {
                 value: preset.id,
-                label: displayLabel,
+                label: isBuiltIn ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={{
+                        color: colorScheme === "dark" ? "#ffffff" : undefined,
+                        flexShrink: 0,
+                        marginRight: 6,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {displayLabel}
+                    </Text>
+                    <ScheduleDots patternId={preset.id} />
+                  </View>
+                ) : (
+                  displayLabel
+                ),
               };
             })}
             onValueChange={setScheduleReset}
@@ -965,6 +1117,32 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             iconName="color-palette"
             iconBackgroundColor="#60a5fa"
           />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Background">
+          <SettingsUI.SwitchItem
+            label="Override main background"
+            secondaryLabel="Use a different background during Reset time window"
+            iconName="color-palette"
+            iconBackgroundColor="#60a5fa"
+            value={scheduleResetBackgroundColor !== null}
+            onValueChange={(value) => {
+              if (value) {
+                setScheduleResetBackgroundColor(exerciseBackgroundColor);
+                setScheduleResetBackgroundImage(exerciseBackgroundImage);
+              } else {
+                setScheduleResetBackgroundColor(null);
+                setScheduleResetBackgroundImage(null);
+              }
+            }}
+          />
+          {scheduleResetBackgroundColor !== null && (
+            <BackgroundPicker
+              backgroundColor={scheduleResetBackgroundColor}
+              onBackgroundColorChange={setScheduleResetBackgroundColor}
+              backgroundImage={scheduleResetBackgroundImage}
+              onBackgroundImageChange={setScheduleResetBackgroundImage}
+            />
+          )}
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
           <SettingsUI.SwitchItem
@@ -1050,6 +1228,12 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const setScheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.setScheduleRestoreTimeLimitRandom);
   const scheduleRestoreColor = useSettingsStore((state) => state.scheduleRestoreColor);
   const setScheduleRestoreColor = useSettingsStore((state) => state.setScheduleRestoreColor);
+  const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
+  const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
+  const scheduleRestoreBackgroundColor = useSettingsStore((state) => state.scheduleRestoreBackgroundColor);
+  const setScheduleRestoreBackgroundColor = useSettingsStore((state) => state.setScheduleRestoreBackgroundColor);
+  const scheduleRestoreBackgroundImage = useSettingsStore((state) => state.scheduleRestoreBackgroundImage);
+  const setScheduleRestoreBackgroundImage = useSettingsStore((state) => state.setScheduleRestoreBackgroundImage);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -1144,9 +1328,26 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
                 : `${preset.name} (${preset.steps
                     .map((duration) => duration / ms("1 sec"))
                     .join("-")})`;
+              const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
               return {
                 value: preset.id,
-                label: displayLabel,
+                label: isBuiltIn ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={{
+                        color: colorScheme === "dark" ? "#ffffff" : undefined,
+                        flexShrink: 0,
+                        marginRight: 6,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {displayLabel}
+                    </Text>
+                    <ScheduleDots patternId={preset.id} />
+                  </View>
+                ) : (
+                  displayLabel
+                ),
               };
             })}
             onValueChange={setScheduleRestore}
@@ -1180,6 +1381,32 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
             iconName="color-palette"
             iconBackgroundColor="#a78bfa"
           />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Background">
+          <SettingsUI.SwitchItem
+            label="Override main background"
+            secondaryLabel="Use a different background during Restore time window"
+            iconName="color-palette"
+            iconBackgroundColor="#a78bfa"
+            value={scheduleRestoreBackgroundColor !== null}
+            onValueChange={(value) => {
+              if (value) {
+                setScheduleRestoreBackgroundColor(exerciseBackgroundColor);
+                setScheduleRestoreBackgroundImage(exerciseBackgroundImage);
+              } else {
+                setScheduleRestoreBackgroundColor(null);
+                setScheduleRestoreBackgroundImage(null);
+              }
+            }}
+          />
+          {scheduleRestoreBackgroundColor !== null && (
+            <BackgroundPicker
+              backgroundColor={scheduleRestoreBackgroundColor}
+              onBackgroundColorChange={setScheduleRestoreBackgroundColor}
+              backgroundImage={scheduleRestoreBackgroundImage}
+              onBackgroundImageChange={setScheduleRestoreBackgroundImage}
+            />
+          )}
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
           <SettingsUI.SwitchItem

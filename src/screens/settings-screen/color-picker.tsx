@@ -4,16 +4,11 @@ import { useColorScheme } from "nativewind";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 export const BREATHING_COLORS = [
-  { value: null, label: "Default", color: "#4a5568" }, // Default pastel orange
-  { value: "#ef4444", label: "Red", color: "#ef4444" },
-  { value: "#f97316", label: "Orange", color: "#f97316" },
-  { value: "#fbbf24", label: "Yellow", color: "#fbbf24" },
-  { value: "#22c55e", label: "Green", color: "#22c55e" },
-  { value: "#3b82f6", label: "Blue", color: "#3b82f6" },
-  { value: "#6366f1", label: "Indigo", color: "#6366f1" },
-  { value: "#a78bfa", label: "Purple", color: "#a78bfa" },
-  { value: "#ec4899", label: "Pink", color: "#ec4899" },
-  { value: "#14b8a6", label: "Teal", color: "#14b8a6" },
+  { value: "#ffffff", label: "White", color: "#ffffff" },
+  { value: "#000000", label: "Black", color: "#000000" },
+  { value: "#166534", label: "Dark Green", color: "#166534" },
+  { value: "#fb923c", label: "Light Orange", color: "#fb923c" },
+  { value: "#581c87", label: "Deep Purple", color: "#581c87" },
 ];
 
 interface ColorPickerProps {

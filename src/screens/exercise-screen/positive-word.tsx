@@ -1,7 +1,8 @@
-import { useColorScheme } from "nativewind";
 import React, { FC, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { animate } from "@nowoo/utils/animate";
+import { isDarkBackground } from "@nowoo/utils/is-dark-background";
+import { useEffectiveExerciseBackground } from "./use-effective-exercise-background";
 import { useInterval } from "@nowoo/utils/use-interval";
 import { getShuffledWords } from "./positive-words";
 
@@ -10,13 +11,13 @@ import { getShuffledWords } from "./positive-words";
 const WORD_POSITION_TOP = 70;
 
 export const PositiveWord: FC = () => {
-  const { colorScheme } = useColorScheme();
   const [words] = useState(() => getShuffledWords());
   const [currentIndex, setCurrentIndex] = useState(0);
   const opacityAnimVal = useRef(new Animated.Value(1)).current;
+  const { backgroundColor } = useEffectiveExerciseBackground();
+  const useLightText = isDarkBackground(backgroundColor);
 
   const currentWord = words[currentIndex];
-  const isDark = colorScheme === "dark";
 
   const cycleToNextWord = () => {
     // Fade out
@@ -40,8 +41,8 @@ export const PositiveWord: FC = () => {
     opacity: opacityAnimVal,
   };
 
-  // Apply opacity to the base color (40% opacity)
-  const textColor = isDark ? "rgba(255, 255, 255, 0.4)" : "rgba(0, 0, 0, 0.4)";
+  // Contrast with exercise background (40% opacity)
+  const textColor = useLightText ? "rgba(255, 255, 255, 0.4)" : "rgba(0, 0, 0, 0.4)";
 
   return (
     <Animated.View

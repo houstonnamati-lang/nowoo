@@ -13,6 +13,7 @@ import { useAuthStore, useAuthHydration } from "@nowoo/stores/auth";
 import {
   SettingsRootScreen,
   SettingsPatternPickerScreen,
+  SettingsDefaultSettingsScreen,
   SettingsScheduleRiseScreen,
   SettingsScheduleResetScreen,
   SettingsScheduleRestoreScreen,
@@ -30,6 +31,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 export type SettingsStackParamList = {
   SettingsRoot: undefined;
   SettingsPatternPicker: undefined;
+  SettingsDefaultSettings: undefined;
   SettingsScheduleRise: undefined;
   SettingsScheduleReset: undefined;
   SettingsScheduleRestore: undefined;
@@ -174,6 +176,15 @@ export const Navigator: FC = () => {
                     options={{
                       headerTitle: "Breathing Patterns",
                       ...commonHeaderSettings,
+                    }}
+                  />
+                  <SettingsStack.Screen
+                    name="SettingsDefaultSettings"
+                    component={SettingsDefaultSettingsScreen}
+                    options={{
+                      headerTitle: "Default Settings",
+                      ...commonHeaderSettings,
+                      headerBackTitle: "Back",
                     }}
                   />
                   <SettingsStack.Screen

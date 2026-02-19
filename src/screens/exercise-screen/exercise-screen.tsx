@@ -3,13 +3,15 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
 import React, { FC, useMemo, useState } from "react";
-import { Animated, Modal, Switch, Text, View } from "react-native";
+import { Animated, Image, Modal, Switch, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
 import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable } from "@nowoo/common/pressable";
 import { RootStackParamList } from "@nowoo/core/navigator";
 import { colors } from "@nowoo/design/colors";
 import { widestDeviceDimension } from "@nowoo/design/metrics";
+import { images } from "@nowoo/assets/images";
 import { AnimatedDots } from "@nowoo/screens/exercise-screen/animated-dots";
 import { StepDescription } from "@nowoo/screens/exercise-screen/step-description";
 import { setGuidedBreathingVolume } from "@nowoo/services/audio";
@@ -25,6 +27,7 @@ import { animate } from "@nowoo/utils/animate";
 import { buildStepsMetadata } from "@nowoo/utils/build-steps-metadata";
 import { useOnUpdate } from "@nowoo/utils/use-on-update";
 import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
+import { useEffectiveExerciseBackground } from "./use-effective-exercise-background";
 import { recordActivity } from "@nowoo/services/activity-tracker";
 import { useStreakStore } from "@nowoo/stores/streak";
 import { BreathingAnimation } from "./breathing-animation";
@@ -58,6 +61,11 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
   const scheduleRiseColor = useSettingsStore((state) => state.scheduleRiseColor);
   const scheduleResetColor = useSettingsStore((state) => state.scheduleResetColor);
   const scheduleRestoreColor = useSettingsStore((state) => state.scheduleRestoreColor);
+  const { backgroundColor: exerciseBackgroundColor, backgroundImage: exerciseBackgroundImage } =
+    useEffectiveExerciseBackground();
+  const exerciseBackgroundImageSource = exerciseBackgroundImage
+    ? images.screenBgs[exerciseBackgroundImage as keyof typeof images.screenBgs]
+    : null;
 
   // Use custom settings if provided; otherwise check schedule overrides; else use main settings
   const guidedBreathingVoice = (() => {
@@ -212,23 +220,45 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
 
   return (
     <View
-      className="flex-1 flex-col justify-between"
+      className="flex-1"
       style={{
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom,
-        paddingLeft: insets.left,
-        paddingRight: insets.right,
-        backgroundColor: colorScheme === "dark" ? "#1a1a1a" : undefined,
+        backgroundColor: exerciseBackgroundColor,
       }}
     >
-      {status === "interlude" && (
+      {exerciseBackgroundImageSource && (
+        <Image
+          source={exerciseBackgroundImageSource}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 1,
+          }}
+          resizeMode="cover"
+        />
+      )}
+      <View 
+        className="flex-1 flex-col justify-between"
+        style={{
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+          zIndex: 2,
+        }}
+      >
+        {status === "interlude" && (
         <ExerciseInterlude
           onComplete={handleInterludeComplete}
           onCountdownStart={playSessionTransitionClips}
           whenAudioReady={whenAudioReady}
         />
-      )}
-      {status === "running" && (
+        )}
+        {status === "running" && (
         <>
           <ExerciseRunningFragment
             onTimeLimitReached={handleTimeLimitReached}
@@ -240,70 +270,120 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
           />
           <View className="flex-row items-center justify-center gap-4 pb-10 pt-6">
             <Pressable
-              className="h-16 w-16 items-center justify-center rounded-full"
               style={{
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: colorScheme === "dark"
-                  ? "rgba(255, 255, 255, 0.1)"
-                  : "rgba(255, 255, 255, 0.7)",
-                borderWidth: 1,
-                borderColor: colorScheme === "dark"
-                  ? "rgba(255, 255, 255, 0.2)"
-                  : "rgba(0, 0, 0, 0.1)",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
+                overflow: "hidden",
               }}
               onPress={() => {
                 setIsPaused(true);
                 setShowPauseDialog(true);
               }}
             >
-              <Ionicons
-                name="pause"
-                size={26}
-                color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)"}
-              />
+              <BlurView
+                intensity={45}
+                tint={colorScheme === "dark" ? "dark" : "light"}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.85,
+                }}
+              >
+                {/* Very subtle edge borders like iOS slider thumb */}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: 32,
+                    borderTopWidth: 0.5,
+                    borderBottomWidth: 0.5,
+                    borderLeftWidth: 0.5,
+                    borderRightWidth: 0.5,
+                    borderTopColor: colorScheme === "dark" 
+                      ? "rgba(255, 255, 255, 0.08)" 
+                      : "rgba(255, 255, 255, 0.2)",
+                    borderBottomColor: colorScheme === "dark"
+                      ? "rgba(0, 0, 0, 0.15)"
+                      : "rgba(0, 0, 0, 0.04)",
+                    borderLeftColor: colorScheme === "dark"
+                      ? "rgba(255, 255, 255, 0.08)"
+                      : "rgba(255, 255, 255, 0.2)",
+                    borderRightColor: colorScheme === "dark"
+                      ? "rgba(0, 0, 0, 0.15)"
+                      : "rgba(0, 0, 0, 0.04)",
+                  }}
+                />
+                <Ionicons
+                  name="pause"
+                  size={26}
+                  color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.9)" : "rgba(0, 0, 0, 0.8)"}
+                />
+              </BlurView>
             </Pressable>
             <Pressable
-              className="h-16 w-16 items-center justify-center rounded-full"
               style={{
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: colorScheme === "dark"
-                  ? "rgba(255, 255, 255, 0.1)"
-                  : "rgba(255, 255, 255, 0.7)",
-                borderWidth: 1,
-                borderColor: colorScheme === "dark"
-                  ? "rgba(255, 255, 255, 0.2)"
-                  : "rgba(0, 0, 0, 0.1)",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
+                overflow: "hidden",
               }}
               onPress={() => setShowSettingsModal(true)}
             >
-              <Ionicons
-                name="settings-outline"
-                size={26}
-                color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)"}
-              />
+              <BlurView
+                intensity={45}
+                tint={colorScheme === "dark" ? "dark" : "light"}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.85,
+                }}
+              >
+                {/* Very subtle edge borders like iOS slider thumb */}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: 32,
+                    borderTopWidth: 0.5,
+                    borderBottomWidth: 0.5,
+                    borderLeftWidth: 0.5,
+                    borderRightWidth: 0.5,
+                    borderTopColor: colorScheme === "dark" 
+                      ? "rgba(255, 255, 255, 0.08)" 
+                      : "rgba(255, 255, 255, 0.2)",
+                    borderBottomColor: colorScheme === "dark"
+                      ? "rgba(0, 0, 0, 0.15)"
+                      : "rgba(0, 0, 0, 0.04)",
+                    borderLeftColor: colorScheme === "dark"
+                      ? "rgba(255, 255, 255, 0.08)"
+                      : "rgba(255, 255, 255, 0.2)",
+                    borderRightColor: colorScheme === "dark"
+                      ? "rgba(0, 0, 0, 0.15)"
+                      : "rgba(0, 0, 0, 0.04)",
+                  }}
+                />
+                <Ionicons
+                  name="settings-outline"
+                  size={26}
+                  color={colorScheme === "dark" ? "rgba(255, 255, 255, 0.9)" : "rgba(0, 0, 0, 0.8)"}
+                />
+              </BlurView>
             </Pressable>
           </View>
         </>
-      )}
-      {status === "completed" && <ExerciseComplete />}
+        )}
+        {status === "completed" && <ExerciseComplete />}
 
       <Modal
         visible={showPauseDialog}
@@ -470,6 +550,7 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
           </Pressable>
         </Pressable>
       </Modal>
+      </View>
     </View>
   );
 };

@@ -2,6 +2,8 @@ import React, { FC, useEffect, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { animate } from "@nowoo/utils/animate";
 import { formatTimer } from "@nowoo/utils/format-timer";
+import { isDarkBackground } from "@nowoo/utils/is-dark-background";
+import { useEffectiveExerciseBackground } from "./use-effective-exercise-background";
 import { useInterval } from "@nowoo/utils/use-interval";
 import { useOnMount } from "@nowoo/utils/use-on-mount";
 
@@ -48,6 +50,8 @@ export const Timer: FC<Props> = ({ limit, onLimitReached, paused = false }) => {
   };
 
   const timerText = limit ? formatTimer(limit / 1000 - elapsedTime) : formatTimer(elapsedTime);
+  const { backgroundColor } = useEffectiveExerciseBackground();
+  const useLightText = isDarkBackground(backgroundColor);
 
   return (
     <Animated.View
@@ -57,8 +61,11 @@ export const Timer: FC<Props> = ({ limit, onLimitReached, paused = false }) => {
       ]}
     >
       <Animated.Text
-        className="text-2xl text-slate-800 dark:text-white"
-        style={{ fontVariant: ["tabular-nums"] }}
+        className="text-2xl"
+        style={{
+          fontVariant: ["tabular-nums"],
+          color: useLightText ? "rgba(255, 255, 255, 0.95)" : "rgba(0, 0, 0, 0.9)",
+        }}
       >
         {timerText}
       </Animated.Text>
