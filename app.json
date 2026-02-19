@@ -1,7 +1,8 @@
 {
-  "expo": {
+    "expo": {
     "name": "NoWoo",
     "slug": "nowoo",
+    "scheme": "com.nowoo.app",
     "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
@@ -63,7 +64,15 @@
           "behavior": "overlay-swipe",
           "backgroundColor": "#00000080"
         }
-      ]
-    ]
+      ],
+      "expo-apple-authentication"
+    ],
+    "notification": {
+      "icon": "./assets/ios-icon.png",
+      "color": "#2d3748",
+      "iosDisplayInForeground": true,
+      "androidMode": "default",
+      "androidCollapsedTitle": "NoWoo"
+    }
   }
 }

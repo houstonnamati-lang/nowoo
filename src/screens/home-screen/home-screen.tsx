@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
-import React, { FC, useEffect, useMemo } from "react";
-import { Animated, Image, Text, View } from "react-native";
+import React, { FC, useEffect, useMemo, useState } from "react";
+import { Animated, Image, Modal, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { create } from "zustand";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,6 +10,8 @@ import { Pressable } from "@nowoo/common/pressable";
 import { RootStackParamList } from "@nowoo/core/navigator";
 import { colors } from "@nowoo/design/colors";
 import { useSettingsStore } from "@nowoo/stores/settings";
+import { useStreakStore } from "@nowoo/stores/streak";
+import { StreakModal } from "@nowoo/screens/exercise-screen/streak-modal";
 import {
   getActiveScheduleCategory,
   getRandomPatternFromSchedule,
@@ -30,6 +32,8 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
   const { colorScheme } = useColorScheme();
   const { isHomeScreenReady, markHomeScreenAsReady } = useHomeScreenStatusStore();
   const insets = useSafeAreaInsets();
+  const [showStreakModal, setShowStreakModal] = useState(false);
+  const currentStreak = useStreakStore((state) => state.currentStreak);
   
   // Get schedule data from store
   const scheduleRise = useSettingsStore((state) => state.scheduleRise);
@@ -187,35 +191,78 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
         backgroundColor: colorScheme === "dark" ? "#2d2d2d" : "#ffffff",
       }}
     >
-      <Pressable
-        className="absolute"
+      <View
+        className="absolute flex-row gap-3"
         style={{
           position: "absolute",
           top: insets.top + 16,
           right: insets.right + 16,
-          padding: 8,
-          borderRadius: 12,
-          backgroundColor: colorScheme === "dark" 
-            ? "rgba(255, 255, 255, 0.1)" 
-            : "rgba(255, 255, 255, 0.7)",
-          borderWidth: 1,
-          borderColor: colorScheme === "dark" 
-            ? "rgba(255, 255, 255, 0.2)" 
-            : "rgba(0, 0, 0, 0.1)",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
         }}
-        onPress={handleCustomizeButtonPress}
       >
-        <Ionicons
-          name="settings-outline"
-          size={24}
-          color={colorScheme === "dark" ? "#f5f5f5" : "#000000"}
-        />
-      </Pressable>
+        <Pressable
+          style={{
+            padding: 8,
+            borderRadius: 12,
+            backgroundColor: colorScheme === "dark" 
+              ? "rgba(255, 255, 255, 0.1)" 
+              : "rgba(255, 255, 255, 0.7)",
+            borderWidth: 1,
+            borderColor: colorScheme === "dark" 
+              ? "rgba(255, 255, 255, 0.2)" 
+              : "rgba(0, 0, 0, 0.1)",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingHorizontal: 12,
+          }}
+          onPress={() => setShowStreakModal(true)}
+        >
+          <Ionicons
+            name="flame"
+            size={20}
+            color="#ff6b35"
+          />
+          <Text
+            style={{
+              color: colorScheme === "dark" ? "#f5f5f5" : "#000000",
+              fontSize: 16,
+              fontWeight: "600",
+            }}
+          >
+            {currentStreak}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={{
+            padding: 8,
+            borderRadius: 12,
+            backgroundColor: colorScheme === "dark" 
+              ? "rgba(255, 255, 255, 0.1)" 
+              : "rgba(255, 255, 255, 0.7)",
+            borderWidth: 1,
+            borderColor: colorScheme === "dark" 
+              ? "rgba(255, 255, 255, 0.2)" 
+              : "rgba(0, 0, 0, 0.1)",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}
+          onPress={handleCustomizeButtonPress}
+        >
+          <Ionicons
+            name="settings-outline"
+            size={24}
+            color={colorScheme === "dark" ? "#f5f5f5" : "#000000"}
+          />
+        </Pressable>
+      </View>
 
       <View 
         className="mx-12 flex-1 items-center justify-center"
@@ -228,7 +275,7 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
           <Image
             source={colorScheme === "dark" ? images.nowooLogoDark : images.nowooLogoLight}
             resizeMode="contain"
-            style={{ width: 225, height: 225 }}
+            style={{ width: 300, height: 300 }}
           />
         </Animated.View>
         <View
@@ -319,6 +366,10 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
           Custom Session
         </Text>
       </Pressable>
+      <StreakModal
+        visible={showStreakModal}
+        onClose={() => setShowStreakModal(false)}
+      />
     </Animated.View>
   );
 };

@@ -61,9 +61,10 @@ export function clearEncouragementTimeout() {
 export async function playSessionTransitionClips(): Promise<void> {
   if (femaleTransitionSounds.length === 0) return;
   const count = 1; // single clip during interlude
+  
+  // Randomly select a transition clip each time instead of cycling sequentially
   for (let i = 0; i < count; i++) {
-    const idx = femaleTransitionIndex % femaleTransitionSounds.length;
-    femaleTransitionIndex++;
+    const idx = Math.floor(Math.random() * femaleTransitionSounds.length);
     const sound = femaleTransitionSounds[idx];
     await sound.setVolumeAsync(guidedBreathingVolume);
     await new Promise<void>((resolve, reject) => {

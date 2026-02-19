@@ -2,12 +2,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { Animated, Modal, Switch, Text, View } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable } from "@nowoo/common/pressable";
 import { RootStackParamList } from "@nowoo/core/navigator";
+import { colors } from "@nowoo/design/colors";
 import { widestDeviceDimension } from "@nowoo/design/metrics";
 import { AnimatedDots } from "@nowoo/screens/exercise-screen/animated-dots";
 import { StepDescription } from "@nowoo/screens/exercise-screen/step-description";
@@ -24,6 +25,8 @@ import { animate } from "@nowoo/utils/animate";
 import { buildStepsMetadata } from "@nowoo/utils/build-steps-metadata";
 import { useOnUpdate } from "@nowoo/utils/use-on-update";
 import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
+import { recordActivity } from "@nowoo/services/activity-tracker";
+import { useStreakStore } from "@nowoo/stores/streak";
 import { BreathingAnimation } from "./breathing-animation";
 import { ExerciseComplete } from "./complete";
 import { ExerciseInterlude } from "./interlude";
@@ -52,6 +55,9 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
   const scheduleRiseVibrationEnabled = useSettingsStore((state) => state.scheduleRiseVibrationEnabled);
   const scheduleResetVibrationEnabled = useSettingsStore((state) => state.scheduleResetVibrationEnabled);
   const scheduleRestoreVibrationEnabled = useSettingsStore((state) => state.scheduleRestoreVibrationEnabled);
+  const scheduleRiseColor = useSettingsStore((state) => state.scheduleRiseColor);
+  const scheduleResetColor = useSettingsStore((state) => state.scheduleResetColor);
+  const scheduleRestoreColor = useSettingsStore((state) => state.scheduleRestoreColor);
 
   // Use custom settings if provided; otherwise check schedule overrides; else use main settings
   const guidedBreathingVoice = (() => {
@@ -138,19 +144,70 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
     setToneVolumeMultiplier(toneVolume);
   }, [voiceVolume, toneVolume]);
 
+  // Calculate breathing animation color based on active schedule
+  const breathingAnimationColor = useMemo(() => {
+    if (customSettings) {
+      // Custom sessions use default color
+      return colors.pastel.orange;
+    }
+    
+    // Determine active schedule category for color
+    const activeCategory = getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+    
+    // Use schedule-specific color if set
+    if (activeCategory === "rise" && scheduleRiseColor) {
+      return scheduleRiseColor;
+    }
+    if (activeCategory === "reset" && scheduleResetColor) {
+      return scheduleResetColor;
+    }
+    if (activeCategory === "restore" && scheduleRestoreColor) {
+      return scheduleRestoreColor;
+    }
+    
+    // Default color
+    return colors.pastel.orange;
+  }, [
+    customSettings,
+    scheduleRiseStartTime,
+    scheduleRiseEndTime,
+    scheduleResetStartTime,
+    scheduleResetEndTime,
+    scheduleRestoreStartTime,
+    scheduleRestoreEndTime,
+    scheduleRiseColor,
+    scheduleResetColor,
+    scheduleRestoreColor,
+  ]);
+
   useKeepAwake();
 
   const handleInterludeComplete = () => {
     setStatus("running");
+    // Record activity when exercise starts
+    recordActivity();
   };
 
   const handleExerciseStepChange = (stepMetadata: StepMetadata) => {
     playExerciseStepAudio(stepMetadata);
   };
 
+  const incrementStreak = useStreakStore((state) => state.incrementStreak);
+
   const handleTimeLimitReached = () => {
     playExerciseCompletedAudio();
     setStatus("completed");
+    // Record activity when exercise completes
+    recordActivity();
+    // Increment streak
+    incrementStreak();
   };
 
   return (
@@ -179,6 +236,7 @@ export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exer
             customSettings={customSettings}
             isPaused={isPaused}
             effectiveVibrationEnabled={effectiveVibrationEnabled}
+            breathingAnimationColor={breathingAnimationColor}
           />
           <View className="flex-row items-center justify-center gap-4 pb-10 pt-6">
             <Pressable
@@ -422,6 +480,7 @@ interface ExerciseRunningFragmentProps {
   customSettings?: import("@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings;
   isPaused?: boolean;
   effectiveVibrationEnabled?: boolean;
+  breathingAnimationColor: string;
 }
 
 const unmountAnimDuration = 300;
@@ -432,6 +491,7 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
   customSettings,
   isPaused = false,
   effectiveVibrationEnabled = true,
+  breathingAnimationColor,
 }) => {
   const {
     timeLimit: mainTimeLimit,
@@ -497,7 +557,10 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
       {currentStep && (
         <View className="flex-1 items-center justify-center">
           <PositiveWord />
-          <BreathingAnimation animationValue={exerciseAnimVal} />
+          <BreathingAnimation 
+            animationValue={exerciseAnimVal} 
+            color={breathingAnimationColor}
+          />
           <StepDescription label={currentStep.label} animationValue={textAnimVal} />
           <AnimatedDots
             numberOfDots={3}

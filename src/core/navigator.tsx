@@ -1,13 +1,15 @@
-import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme, DarkTheme, useNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
-import React, { FC } from "react";
-import { Platform, Button } from "react-native";
+import React, { FC, useEffect } from "react";
+import { Platform, Button, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors } from "@nowoo/design/colors";
 import { ExerciseScreen } from "@nowoo/screens/exercise-screen/exercise-screen";
 import { HomeScreen } from "@nowoo/screens/home-screen/home-screen";
 import { CustomSessionSetupScreen } from "@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen";
+import { OnboardingScreen } from "@nowoo/screens/onboarding-screen/onboarding-screen";
+import { useAuthStore, useAuthHydration } from "@nowoo/stores/auth";
 import {
   SettingsRootScreen,
   SettingsPatternPickerScreen,
@@ -17,6 +19,7 @@ import {
 } from "@nowoo/screens/settings-screen/settings-screen";
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Home: undefined;
   Exercise: { customSettings?: import("@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings } | undefined;
   Settings: undefined;
@@ -36,6 +39,11 @@ const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 
 export const Navigator: FC = () => {
   const { colorScheme } = useColorScheme();
+  const authHydrated = useAuthHydration();
+  const user = useAuthStore((state) => state.user);
+  const skipAuth = useAuthStore((state) => state.skipAuth);
+  const isAuthenticated = authHydrated && (skipAuth || user !== null);
+  const navigationRef = useNavigationContainerRef();
   const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
   const backgroundColor = colorScheme === "dark" ? "#000000" : colors["stone-100"];
   const theme = {
@@ -46,15 +54,50 @@ export const Navigator: FC = () => {
       background: backgroundColor,
     },
   };
+
+  // Navigate based on auth state after hydration
+  useEffect(() => {
+    if (!authHydrated || !navigationRef.isReady()) return;
+    
+    const currentRoute = navigationRef.getCurrentRoute()?.name;
+    if (isAuthenticated && currentRoute === "Onboarding") {
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } else if (!isAuthenticated && currentRoute !== "Onboarding" && currentRoute !== undefined) {
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: "Onboarding" }],
+      });
+    }
+  }, [authHydrated, isAuthenticated, navigationRef]);
+
+  // Wait for auth hydration before deciding initial route
+  if (!authHydrated) {
+    return (
+      <SafeAreaProvider style={{ backgroundColor }}>
+        <View style={{ flex: 1, backgroundColor }} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider style={{ backgroundColor }}>
-      <NavigationContainer theme={theme}>
+      <NavigationContainer ref={navigationRef} theme={theme}>
         <RootStack.Navigator
-          initialRouteName="Home"
+          initialRouteName={isAuthenticated ? "Home" : "Onboarding"}
           screenOptions={{
             headerShown: false,
           }}
         >
+          <RootStack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{
+              animation: Platform.OS === "ios" ? "fade" : "simple_push",
+            }}
+          />
           <RootStack.Screen
             name="Home"
             component={HomeScreen}

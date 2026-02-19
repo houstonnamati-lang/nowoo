@@ -75,6 +75,12 @@ interface SettingsStore {
   setScheduleRestoreTimeLimit: (timeLimit: number | null) => unknown;
   scheduleRestoreTimeLimitRandom: boolean;
   setScheduleRestoreTimeLimitRandom: (random: boolean) => unknown;
+  scheduleRiseColor: string | null; // null means use default color
+  setScheduleRiseColor: (color: string | null) => unknown;
+  scheduleResetColor: string | null;
+  setScheduleResetColor: (color: string | null) => unknown;
+  scheduleRestoreColor: string | null;
+  setScheduleRestoreColor: (color: string | null) => unknown;
   customPatterns: PatternPreset[];
   addCustomPattern: (pattern: PatternPreset) => unknown;
   removeCustomPattern: (patternId: string) => unknown;
@@ -164,6 +170,12 @@ export const useSettingsStore = create<SettingsStore>()(
         setScheduleRestoreTimeLimit: (timeLimit) => set({ scheduleRestoreTimeLimit: timeLimit }),
         scheduleRestoreTimeLimitRandom: false,
         setScheduleRestoreTimeLimitRandom: (random) => set({ scheduleRestoreTimeLimitRandom: random }),
+        scheduleRiseColor: null,
+        setScheduleRiseColor: (color) => set({ scheduleRiseColor: color }),
+        scheduleResetColor: null,
+        setScheduleResetColor: (color) => set({ scheduleResetColor: color }),
+        scheduleRestoreColor: null,
+        setScheduleRestoreColor: (color) => set({ scheduleRestoreColor: color }),
         customPatterns: [],
         addCustomPattern: (pattern) =>
           set((state) => ({

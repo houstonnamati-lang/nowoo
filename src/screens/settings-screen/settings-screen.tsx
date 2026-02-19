@@ -14,6 +14,7 @@ import {
   useSelectedPatternName,
   useSettingsStore,
 } from "@nowoo/stores/settings";
+import { useAuthStore } from "@nowoo/stores/auth";
 import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
 import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
 import { PatternPreset } from "@nowoo/types/pattern-preset";
@@ -26,6 +27,7 @@ import {
   releaseFrequencyTone,
   setToneVolumeMultiplier,
 } from "@nowoo/services/frequency-tone";
+import { ColorPicker } from "./color-picker";
 
 const customDurationLimits = [
   [ms("1 sec"), ms("99 sec")],
@@ -260,7 +262,7 @@ export const SettingsRootScreen: FC<
             {!shouldFollowSystemDarkMode && (
               <SettingsUI.PickerItem
                 label="Theme"
-                iconName="ios-color-palette"
+                iconName="color-palette"
                 iconBackgroundColor="#d8b4fe"
                 options={[
                   { value: "light", label: "Light theme" },
@@ -334,6 +336,27 @@ export const SettingsRootScreen: FC<
                 return `${formatTimeForDisplay(scheduleRestoreStartTime)} - ${formatTimeForDisplay(scheduleRestoreEndTime)}`;
               })()}
               onPress={() => navigation.navigate("SettingsScheduleRestore")}
+            />
+          </SettingsUI.Section>
+          <SettingsUI.Section label="Development">
+            <SettingsUI.LinkItem
+              label="Reset Authentication"
+              iconName="refresh"
+              iconBackgroundColor="#ef4444"
+              value=""
+              onPress={async () => {
+                const { resetAuth } = useAuthStore.getState();
+                const { signOut } = await import("firebase/auth");
+                const { getFirebaseAuth } = await import("@nowoo/config/firebase");
+                try {
+                  const auth = getFirebaseAuth();
+                  await signOut(auth);
+                } catch (e) {
+                  // Ignore sign out errors
+                }
+                resetAuth();
+                Alert.alert("Auth Reset", "Authentication state has been reset. Please restart the app.");
+              }}
             />
           </SettingsUI.Section>
         </ScrollView>
@@ -595,6 +618,8 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const setScheduleRiseTimeLimit = useSettingsStore((state) => state.setScheduleRiseTimeLimit);
   const scheduleRiseTimeLimitRandom = useSettingsStore((state) => state.scheduleRiseTimeLimitRandom);
   const setScheduleRiseTimeLimitRandom = useSettingsStore((state) => state.setScheduleRiseTimeLimitRandom);
+  const scheduleRiseColor = useSettingsStore((state) => state.scheduleRiseColor);
+  const setScheduleRiseColor = useSettingsStore((state) => state.setScheduleRiseColor);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -717,6 +742,15 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
             }}
           />
         </SettingsUI.Section>
+        <SettingsUI.Section label="Appearance">
+          <ColorPicker
+            selectedColor={scheduleRiseColor}
+            onColorChange={setScheduleRiseColor}
+            label="Breathing animation color"
+            iconName="color-palette"
+            iconBackgroundColor="#fbbf24"
+          />
+        </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
           <SettingsUI.SwitchItem
             label="Random"
@@ -799,6 +833,8 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const setScheduleResetTimeLimit = useSettingsStore((state) => state.setScheduleResetTimeLimit);
   const scheduleResetTimeLimitRandom = useSettingsStore((state) => state.scheduleResetTimeLimitRandom);
   const setScheduleResetTimeLimitRandom = useSettingsStore((state) => state.setScheduleResetTimeLimitRandom);
+  const scheduleResetColor = useSettingsStore((state) => state.scheduleResetColor);
+  const setScheduleResetColor = useSettingsStore((state) => state.setScheduleResetColor);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -921,6 +957,15 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             }}
           />
         </SettingsUI.Section>
+        <SettingsUI.Section label="Appearance">
+          <ColorPicker
+            selectedColor={scheduleResetColor}
+            onColorChange={setScheduleResetColor}
+            label="Breathing animation color"
+            iconName="color-palette"
+            iconBackgroundColor="#60a5fa"
+          />
+        </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
           <SettingsUI.SwitchItem
             label="Random"
@@ -1003,6 +1048,8 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const setScheduleRestoreTimeLimit = useSettingsStore((state) => state.setScheduleRestoreTimeLimit);
   const scheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.scheduleRestoreTimeLimitRandom);
   const setScheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.setScheduleRestoreTimeLimitRandom);
+  const scheduleRestoreColor = useSettingsStore((state) => state.scheduleRestoreColor);
+  const setScheduleRestoreColor = useSettingsStore((state) => state.setScheduleRestoreColor);
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
@@ -1123,6 +1170,15 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
               const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
               setScheduleRestoreGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
             }}
+          />
+        </SettingsUI.Section>
+        <SettingsUI.Section label="Appearance">
+          <ColorPicker
+            selectedColor={scheduleRestoreColor}
+            onColorChange={setScheduleRestoreColor}
+            label="Breathing animation color"
+            iconName="color-palette"
+            iconBackgroundColor="#a78bfa"
           />
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">

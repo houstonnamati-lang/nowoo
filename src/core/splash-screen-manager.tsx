@@ -67,6 +67,15 @@ const AnimatedSplashScreen: React.FC<PropsWithChildren> = ({ children }) => {
   const [isAppReady, setAppReady] = useState(false);
   const { isHomeScreenReady } = useHomeScreenStatusStore();
   const [isSplashAnimationComplete, setAnimationComplete] = useState(false);
+  const [hasWaitedMinimum, setHasWaitedMinimum] = useState(false);
+
+  // Wait minimum time before allowing splash to hide
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHasWaitedMinimum(true);
+    }, waitBeforeHide);
+    return () => clearTimeout(timer);
+  }, []);
 
   const showApp = async () => {
     const currentTime = Date.now();
@@ -84,10 +93,20 @@ const AnimatedSplashScreen: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   useEffect(() => {
-    if (isAppReady && isHomeScreenReady) {
-      showApp();
+    // Hide splash screen once app is ready and minimum wait time has passed
+    // If HomeScreen is ready, use it; otherwise hide anyway (for onboarding screen)
+    if (isAppReady && hasWaitedMinimum) {
+      if (isHomeScreenReady) {
+        showApp();
+      } else {
+        // HomeScreen not ready (user is on onboarding), hide splash after short delay
+        const timer = setTimeout(() => {
+          showApp();
+        }, 200);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isAppReady, isHomeScreenReady]);
+  }, [isAppReady, isHomeScreenReady, hasWaitedMinimum]);
 
   const videoRef = useRef<Video>(null);
   const [hasVideoLoaded, setHasVideoLoaded] = useState(false);
