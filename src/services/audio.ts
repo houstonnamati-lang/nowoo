@@ -215,6 +215,21 @@ export const playEndingBellSound = async () => {
   await endingBellSound?.replayAsync();
 };
 
+/** Load, play, and unload the ending bell - for splash screen only. Does not rely on setupGuidedBreathingAudio. */
+export const playSplashChime = async () => {
+  try {
+    const { sound } = await Audio.Sound.createAsync(sounds.endingBell);
+    await sound.replayAsync();
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish && !status.isLooping) {
+        sound.unloadAsync().catch(() => {});
+      }
+    });
+  } catch {
+    /* ignore - splash chime is non-critical */
+  }
+};
+
 let voicePreviewSound: Audio.Sound | null = null;
 let voicePreviewEncouragementIndex = 0;
 let voicePreviewPlaying = false;

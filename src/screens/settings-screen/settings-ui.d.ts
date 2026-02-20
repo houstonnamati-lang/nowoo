@@ -48,6 +48,8 @@ export interface MultiSelectItemProps extends CommonItemProps {
   selectedValues: string[];
   options: { label: string | React.ReactNode; value: string }[];
   onValueChange: (values: string[]) => unknown;
+  /** Shown when nothing selected (e.g. "Default: Awake") */
+  emptyLabel?: string;
 }
 
 export interface TextInputItemProps extends CommonItemProps {

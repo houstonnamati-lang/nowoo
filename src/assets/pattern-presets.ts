@@ -1,7 +1,9 @@
 import ms from "ms";
 import { PatternPreset } from "../types/pattern-preset";
 
+// Ordered by type: Rise first, then Reset, then Restore (matching PATTERN_BEST_FOR in pattern-schedule-dots.tsx)
 export const patternPresets: PatternPreset[] = [
+  // Rise
   {
     id: "awake",
     name: "Awake",
@@ -10,10 +12,19 @@ export const patternPresets: PatternPreset[] = [
       "Use this technique first thing in the morning for quick burst of energy and alertness.",
   },
   {
-    id: "deep-calm",
-    name: "Deep Calm",
-    steps: [ms("4s"), ms("7s"), ms("8s"), 0],
-    description: "A natural tranquilizer for the nervous system. Do it at least twice a day.",
+    id: "sunrise",
+    name: "Sunrise",
+    steps: [ms("5s"), 0, ms("5s"), 0],
+    description:
+      "A balanced breathing pattern perfect for starting your day with calm and clarity.",
+  },
+  // Reset
+  {
+    id: "performance",
+    name: "Performance",
+    steps: [ms("4s"), ms("2s"), ms("6s"), 0],
+    description:
+      "Optimize your breathing rhythm for enhanced physical and mental performance.",
   },
   {
     id: "pranayama",
@@ -35,19 +46,12 @@ export const patternPresets: PatternPreset[] = [
     description:
       "Balance influence on the cardiorespiratory system, release feelings of irritation, and calm the mind and body.",
   },
+  // Restore
   {
-    id: "performance",
-    name: "Performance",
-    steps: [ms("4s"), ms("2s"), ms("6s"), 0],
-    description:
-      "Optimize your breathing rhythm for enhanced physical and mental performance.",
-  },
-  {
-    id: "sunrise",
-    name: "Sunrise",
-    steps: [ms("5s"), 0, ms("5s"), 0],
-    description:
-      "A balanced breathing pattern perfect for starting your day with calm and clarity.",
+    id: "deep-calm",
+    name: "Deep Calm",
+    steps: [ms("4s"), ms("7s"), ms("8s"), 0],
+    description: "A natural tranquilizer for the nervous system. Do it at least twice a day.",
   },
   {
     id: "relaxation",

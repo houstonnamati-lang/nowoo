@@ -237,6 +237,7 @@ const MultiSelectItem: FC<MultiSelectItemProps> = ({
   selectedValues,
   options,
   onValueChange,
+  emptyLabel,
   ...baseProps
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -250,7 +251,7 @@ const MultiSelectItem: FC<MultiSelectItemProps> = ({
 
   const displayLabel =
     selectedValues.length === 0
-      ? "None selected"
+      ? (emptyLabel ?? "None selected")
       : selectedValues.length === 1
       ? (() => {
           const opt = options.find((o) => o.value === selectedValues[0]);
@@ -296,41 +297,23 @@ const TextInputItem: FC<TextInputItemProps> = ({
   multiline = false,
   ...baseProps
 }) => {
-  if (multiline) {
-    return (
-      <View style={{ paddingVertical: 8, paddingHorizontal: 72 }}>
-        {baseProps.label && (
-          <Text className="mb-2 text-slate-800 dark:text-white">{baseProps.label}</Text>
-        )}
-        <TextInput
-          className="flex-1 text-left text-slate-800 dark:text-white"
-          style={{
-            flex: 1,
-            textAlign: "left",
-            textAlignVertical: "top",
-            minHeight: 60,
-            padding: 8,
-            borderRadius: 8,
-            backgroundColor: "#f5f5f5",
-            borderWidth: 1,
-            borderColor: "#e7e5e4",
-          }}
-          value={value}
-          placeholder={placeholder}
-          placeholderTextColor={colors["slate-500"]}
-          onChangeText={onValueChange}
-          multiline={multiline}
-        />
-      </View>
-    );
-  }
   return (
-    <BaseItem {...baseProps}>
+    <View style={{ paddingVertical: 8, paddingHorizontal: 72 }}>
+      {baseProps.label && (
+        <Text className="mb-2 text-slate-800 dark:text-white">{baseProps.label}</Text>
+      )}
       <TextInput
-        className="flex-1 text-right text-slate-800 dark:text-white"
+        className="flex-1 text-left text-slate-800 dark:text-white"
         style={{
           flex: 1,
-          textAlign: "right",
+          textAlign: "left",
+          textAlignVertical: multiline ? "top" : "center",
+          minHeight: multiline ? 60 : 40,
+          padding: 8,
+          borderRadius: 8,
+          backgroundColor: "#f5f5f5",
+          borderWidth: 1,
+          borderColor: "#e7e5e4",
         }}
         value={value}
         placeholder={placeholder}
@@ -338,7 +321,7 @@ const TextInputItem: FC<TextInputItemProps> = ({
         onChangeText={onValueChange}
         multiline={multiline}
       />
-    </BaseItem>
+    </View>
   );
 };
 

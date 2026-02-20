@@ -27,7 +27,7 @@ import { animate } from "@nowoo/utils/animate";
 import { buildStepsMetadata } from "@nowoo/utils/build-steps-metadata";
 import { useOnUpdate } from "@nowoo/utils/use-on-update";
 import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
-import { useEffectiveExerciseBackground } from "./use-effective-exercise-background";
+import { useEffectiveExerciseBackground, UseDefaultSettingsContext } from "./use-effective-exercise-background";
 import { recordActivity } from "@nowoo/services/activity-tracker";
 import { useStreakStore } from "@nowoo/stores/streak";
 import { BreathingAnimation } from "./breathing-animation";
@@ -38,7 +38,13 @@ import { Timer } from "./timer";
 
 export type ExerciseStatus = "interlude" | "running" | "completed";
 
-export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exercise">> = ({
+export const ExerciseScreen: FC<NativeStackScreenProps<RootStackParamList, "Exercise">> = (props) => (
+  <UseDefaultSettingsContext.Provider value={props.route.params?.customSettings?.useDefaults ?? false}>
+    <ExerciseScreenInner {...props} />
+  </UseDefaultSettingsContext.Provider>
+);
+
+const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exercise">> = ({
   navigation,
   route,
 }) => {
@@ -577,6 +583,15 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
   const {
     timeLimit: mainTimeLimit,
     customPatterns,
+    scheduleRiseStartTime,
+    scheduleRiseEndTime,
+    scheduleResetStartTime,
+    scheduleResetEndTime,
+    scheduleRestoreStartTime,
+    scheduleRestoreEndTime,
+    scheduleRiseTimeLimit,
+    scheduleResetTimeLimit,
+    scheduleRestoreTimeLimit,
   } = useSettingsStore();
   const defaultSelectedPatternSteps = useSelectedPatternSteps();
   const [unmountContentAnimVal] = useState(new Animated.Value(1));
@@ -595,9 +610,23 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
 
   const { currentStep, exerciseAnimVal, textAnimVal } = useExerciseLoop(stepsMetadata, isPaused);
   
-  const effectiveTimeLimit = customSettings?.useDefaults
-    ? mainTimeLimit
-    : (customSettings?.timeLimit ?? mainTimeLimit);
+  const effectiveTimeLimit = (() => {
+    if (customSettings?.useDefaults) return mainTimeLimit;
+    if (customSettings?.timeLimit != null) return customSettings.timeLimit;
+    // No custom session: use schedule-specific time limit when in schedule window
+    const activeCategory = getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+    if (activeCategory === "rise") return scheduleRiseTimeLimit;
+    if (activeCategory === "reset") return scheduleResetTimeLimit;
+    if (activeCategory === "restore") return scheduleRestoreTimeLimit;
+    return mainTimeLimit;
+  })();
 
   useOnUpdate(
     (prevStepMetadata) => {

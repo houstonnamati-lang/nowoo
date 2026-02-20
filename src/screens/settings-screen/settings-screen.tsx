@@ -6,6 +6,7 @@ import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Press
 import Slider from "@react-native-community/slider";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
+import { DEFAULT_SCHEDULE_PATTERNS } from "@nowoo/utils/pattern-schedule-dots";
 import { colors } from "@nowoo/design/colors";
 import { SettingsStackParamList } from "@nowoo/core/navigator";
 import { SettingsUI } from "@nowoo/screens/settings-screen/settings-ui";
@@ -696,8 +697,6 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const timeLimit = useSettingsStore((state) => state.timeLimit);
   const scheduleRiseTimeLimit = useSettingsStore((state) => state.scheduleRiseTimeLimit);
   const setScheduleRiseTimeLimit = useSettingsStore((state) => state.setScheduleRiseTimeLimit);
-  const scheduleRiseTimeLimitRandom = useSettingsStore((state) => state.scheduleRiseTimeLimitRandom);
-  const setScheduleRiseTimeLimitRandom = useSettingsStore((state) => state.setScheduleRiseTimeLimitRandom);
   const scheduleRiseColor = useSettingsStore((state) => state.scheduleRiseColor);
   const setScheduleRiseColor = useSettingsStore((state) => state.setScheduleRiseColor);
   const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
@@ -793,6 +792,7 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
             iconName="list"
             iconBackgroundColor="#fbbf24"
             selectedValues={scheduleRise}
+            emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.rise[0])?.name ?? "Awake"}`}
             options={allPatterns.map((preset) => {
               const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
               const displayLabel = hasIntervalsInName
@@ -881,41 +881,21 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
           )}
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
-          <SettingsUI.SwitchItem
-            label="Random"
-            secondaryLabel="Random time between 2-10 minutes"
-            iconName="shuffle"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseTimeLimitRandom}
-            onValueChange={(value) => {
-              setScheduleRiseTimeLimitRandom(value);
-              if (value) {
-                // When enabling random, clear the specific time limit override
-                setScheduleRiseTimeLimit(null);
-              }
-            }}
-          />
           <SettingsUI.StepperItem
             label="Exercise timer"
             secondaryLabel="Time limit in minutes"
             iconName="timer"
             iconBackgroundColor="#fbbf24"
-            value={scheduleRiseTimeLimitRandom 
-              ? "∞"
-              : scheduleRiseTimeLimit !== null 
-                ? scheduleRiseTimeLimit / ms("1 min")
-                : 5}
+            value={scheduleRiseTimeLimit / ms("1 min")}
             fractionDigits={1}
-            decreaseDisabled={scheduleRiseTimeLimitRandom || (scheduleRiseTimeLimit !== null ? scheduleRiseTimeLimit <= 0 : false)}
-            increaseDisabled={scheduleRiseTimeLimitRandom || (scheduleRiseTimeLimit !== null ? scheduleRiseTimeLimit >= maxTimeLimit : false)}
+            decreaseDisabled={scheduleRiseTimeLimit <= 0}
+            increaseDisabled={scheduleRiseTimeLimit >= maxTimeLimit}
             onDecrease={() => {
-              const currentLimit = scheduleRiseTimeLimit ?? ms("5 min");
-              const newLimit = Math.max(0, currentLimit - ms("0.5 min"));
+              const newLimit = Math.max(0, scheduleRiseTimeLimit - ms("0.5 min"));
               setScheduleRiseTimeLimit(newLimit);
             }}
             onIncrease={() => {
-              const currentLimit = scheduleRiseTimeLimit ?? ms("5 min");
-              const newLimit = Math.min(maxTimeLimit, currentLimit + ms("0.5 min"));
+              const newLimit = Math.min(maxTimeLimit, scheduleRiseTimeLimit + ms("0.5 min"));
               setScheduleRiseTimeLimit(newLimit);
             }}
           />
@@ -960,8 +940,6 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const timeLimit = useSettingsStore((state) => state.timeLimit);
   const scheduleResetTimeLimit = useSettingsStore((state) => state.scheduleResetTimeLimit);
   const setScheduleResetTimeLimit = useSettingsStore((state) => state.setScheduleResetTimeLimit);
-  const scheduleResetTimeLimitRandom = useSettingsStore((state) => state.scheduleResetTimeLimitRandom);
-  const setScheduleResetTimeLimitRandom = useSettingsStore((state) => state.setScheduleResetTimeLimitRandom);
   const scheduleResetColor = useSettingsStore((state) => state.scheduleResetColor);
   const setScheduleResetColor = useSettingsStore((state) => state.setScheduleResetColor);
   const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
@@ -1057,6 +1035,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             iconName="list"
             iconBackgroundColor="#60a5fa"
             selectedValues={scheduleReset}
+            emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.reset[0])?.name ?? "Performance"}`}
             options={allPatterns.map((preset) => {
               const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
               const displayLabel = hasIntervalsInName
@@ -1145,41 +1124,21 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
           )}
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
-          <SettingsUI.SwitchItem
-            label="Random"
-            secondaryLabel="Random time between 2-10 minutes"
-            iconName="shuffle"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetTimeLimitRandom}
-            onValueChange={(value) => {
-              setScheduleResetTimeLimitRandom(value);
-              if (value) {
-                // When enabling random, clear the specific time limit override
-                setScheduleResetTimeLimit(null);
-              }
-            }}
-          />
           <SettingsUI.StepperItem
             label="Exercise timer"
             secondaryLabel="Time limit in minutes"
             iconName="timer"
             iconBackgroundColor="#60a5fa"
-            value={scheduleResetTimeLimitRandom 
-              ? "∞"
-              : scheduleResetTimeLimit !== null 
-                ? scheduleResetTimeLimit / ms("1 min")
-                : 5}
+            value={scheduleResetTimeLimit / ms("1 min")}
             fractionDigits={1}
-            decreaseDisabled={scheduleResetTimeLimitRandom || (scheduleResetTimeLimit !== null ? scheduleResetTimeLimit <= 0 : false)}
-            increaseDisabled={scheduleResetTimeLimitRandom || (scheduleResetTimeLimit !== null ? scheduleResetTimeLimit >= maxTimeLimit : false)}
+            decreaseDisabled={scheduleResetTimeLimit <= 0}
+            increaseDisabled={scheduleResetTimeLimit >= maxTimeLimit}
             onDecrease={() => {
-              const currentLimit = scheduleResetTimeLimit ?? ms("5 min");
-              const newLimit = Math.max(0, currentLimit - ms("0.5 min"));
+              const newLimit = Math.max(0, scheduleResetTimeLimit - ms("0.5 min"));
               setScheduleResetTimeLimit(newLimit);
             }}
             onIncrease={() => {
-              const currentLimit = scheduleResetTimeLimit ?? ms("5 min");
-              const newLimit = Math.min(maxTimeLimit, currentLimit + ms("0.5 min"));
+              const newLimit = Math.min(maxTimeLimit, scheduleResetTimeLimit + ms("0.5 min"));
               setScheduleResetTimeLimit(newLimit);
             }}
           />
@@ -1224,8 +1183,6 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const timeLimit = useSettingsStore((state) => state.timeLimit);
   const scheduleRestoreTimeLimit = useSettingsStore((state) => state.scheduleRestoreTimeLimit);
   const setScheduleRestoreTimeLimit = useSettingsStore((state) => state.setScheduleRestoreTimeLimit);
-  const scheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.scheduleRestoreTimeLimitRandom);
-  const setScheduleRestoreTimeLimitRandom = useSettingsStore((state) => state.setScheduleRestoreTimeLimitRandom);
   const scheduleRestoreColor = useSettingsStore((state) => state.scheduleRestoreColor);
   const setScheduleRestoreColor = useSettingsStore((state) => state.setScheduleRestoreColor);
   const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
@@ -1321,6 +1278,7 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
             iconName="list"
             iconBackgroundColor="#a78bfa"
             selectedValues={scheduleRestore}
+            emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.restore[0])?.name ?? "Deep Calm"}`}
             options={allPatterns.map((preset) => {
               const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
               const displayLabel = hasIntervalsInName
@@ -1409,41 +1367,21 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
           )}
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer">
-          <SettingsUI.SwitchItem
-            label="Random"
-            secondaryLabel="Random time between 2-10 minutes"
-            iconName="shuffle"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreTimeLimitRandom}
-            onValueChange={(value) => {
-              setScheduleRestoreTimeLimitRandom(value);
-              if (value) {
-                // When enabling random, clear the specific time limit override
-                setScheduleRestoreTimeLimit(null);
-              }
-            }}
-          />
           <SettingsUI.StepperItem
             label="Exercise timer"
             secondaryLabel="Time limit in minutes"
             iconName="timer"
             iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreTimeLimitRandom 
-              ? "∞"
-              : scheduleRestoreTimeLimit !== null 
-                ? scheduleRestoreTimeLimit / ms("1 min")
-                : 5}
+            value={scheduleRestoreTimeLimit / ms("1 min")}
             fractionDigits={1}
-            decreaseDisabled={scheduleRestoreTimeLimitRandom || (scheduleRestoreTimeLimit !== null ? scheduleRestoreTimeLimit <= 0 : false)}
-            increaseDisabled={scheduleRestoreTimeLimitRandom || (scheduleRestoreTimeLimit !== null ? scheduleRestoreTimeLimit >= maxTimeLimit : false)}
+            decreaseDisabled={scheduleRestoreTimeLimit <= 0}
+            increaseDisabled={scheduleRestoreTimeLimit >= maxTimeLimit}
             onDecrease={() => {
-              const currentLimit = scheduleRestoreTimeLimit ?? ms("5 min");
-              const newLimit = Math.max(0, currentLimit - ms("0.5 min"));
+              const newLimit = Math.max(0, scheduleRestoreTimeLimit - ms("0.5 min"));
               setScheduleRestoreTimeLimit(newLimit);
             }}
             onIncrease={() => {
-              const currentLimit = scheduleRestoreTimeLimit ?? ms("5 min");
-              const newLimit = Math.min(maxTimeLimit, currentLimit + ms("0.5 min"));
+              const newLimit = Math.min(maxTimeLimit, scheduleRestoreTimeLimit + ms("0.5 min"));
               setScheduleRestoreTimeLimit(newLimit);
             }}
           />

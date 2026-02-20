@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist, subscribeWithSelector } from "zustand/middleware";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
+import { DEFAULT_SCHEDULE_PATTERNS } from "@nowoo/utils/pattern-schedule-dots";
 import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
 import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
 import { PatternPreset } from "@nowoo/types/pattern-preset";
@@ -63,18 +64,12 @@ interface SettingsStore {
   setScheduleResetGuidedBreathingVoice: (voice: GuidedBreathingMode | null) => unknown;
   scheduleRestoreGuidedBreathingVoice: GuidedBreathingMode | null;
   setScheduleRestoreGuidedBreathingVoice: (voice: GuidedBreathingMode | null) => unknown;
-  scheduleRiseTimeLimit: number | null; // null means use main setting, in milliseconds
-  setScheduleRiseTimeLimit: (timeLimit: number | null) => unknown;
-  scheduleRiseTimeLimitRandom: boolean;
-  setScheduleRiseTimeLimitRandom: (random: boolean) => unknown;
-  scheduleResetTimeLimit: number | null;
-  setScheduleResetTimeLimit: (timeLimit: number | null) => unknown;
-  scheduleResetTimeLimitRandom: boolean;
-  setScheduleResetTimeLimitRandom: (random: boolean) => unknown;
-  scheduleRestoreTimeLimit: number | null;
-  setScheduleRestoreTimeLimit: (timeLimit: number | null) => unknown;
-  scheduleRestoreTimeLimitRandom: boolean;
-  setScheduleRestoreTimeLimitRandom: (random: boolean) => unknown;
+  scheduleRiseTimeLimit: number; // milliseconds, default 3 min until changed
+  setScheduleRiseTimeLimit: (timeLimit: number) => unknown;
+  scheduleResetTimeLimit: number;
+  setScheduleResetTimeLimit: (timeLimit: number) => unknown;
+  scheduleRestoreTimeLimit: number;
+  setScheduleRestoreTimeLimit: (timeLimit: number) => unknown;
   scheduleRiseColor: string | null; // null means use default color
   setScheduleRiseColor: (color: string | null) => unknown;
   scheduleResetColor: string | null;
@@ -144,19 +139,19 @@ export const useSettingsStore = create<SettingsStore>()(
         setTheme: (theme) => set({ theme }),
         vibrationEnabled: true,
         setVibrationEnabled: (vibrationEnabled) => set({ vibrationEnabled }),
-        scheduleRise: [],
+        scheduleRise: [...DEFAULT_SCHEDULE_PATTERNS.rise],
         setScheduleRise: (patternIds) => set({ scheduleRise: patternIds }),
         scheduleRiseStartTime: "",
         setScheduleRiseStartTime: (time) => set({ scheduleRiseStartTime: time }),
         scheduleRiseEndTime: "",
         setScheduleRiseEndTime: (time) => set({ scheduleRiseEndTime: time }),
-        scheduleReset: [],
+        scheduleReset: [...DEFAULT_SCHEDULE_PATTERNS.reset],
         setScheduleReset: (patternIds) => set({ scheduleReset: patternIds }),
         scheduleResetStartTime: "",
         setScheduleResetStartTime: (time) => set({ scheduleResetStartTime: time }),
         scheduleResetEndTime: "",
         setScheduleResetEndTime: (time) => set({ scheduleResetEndTime: time }),
-        scheduleRestore: [],
+        scheduleRestore: [...DEFAULT_SCHEDULE_PATTERNS.restore],
         setScheduleRestore: (patternIds) => set({ scheduleRestore: patternIds }),
         scheduleRestoreStartTime: "",
         setScheduleRestoreStartTime: (time) => set({ scheduleRestoreStartTime: time }),
@@ -174,18 +169,12 @@ export const useSettingsStore = create<SettingsStore>()(
         setScheduleResetGuidedBreathingVoice: (voice) => set({ scheduleResetGuidedBreathingVoice: voice }),
         scheduleRestoreGuidedBreathingVoice: null,
         setScheduleRestoreGuidedBreathingVoice: (voice) => set({ scheduleRestoreGuidedBreathingVoice: voice }),
-        scheduleRiseTimeLimit: null,
+        scheduleRiseTimeLimit: ms("3 min"),
         setScheduleRiseTimeLimit: (timeLimit) => set({ scheduleRiseTimeLimit: timeLimit }),
-        scheduleRiseTimeLimitRandom: false,
-        setScheduleRiseTimeLimitRandom: (random) => set({ scheduleRiseTimeLimitRandom: random }),
-        scheduleResetTimeLimit: null,
+        scheduleResetTimeLimit: ms("3 min"),
         setScheduleResetTimeLimit: (timeLimit) => set({ scheduleResetTimeLimit: timeLimit }),
-        scheduleResetTimeLimitRandom: false,
-        setScheduleResetTimeLimitRandom: (random) => set({ scheduleResetTimeLimitRandom: random }),
-        scheduleRestoreTimeLimit: null,
+        scheduleRestoreTimeLimit: ms("3 min"),
         setScheduleRestoreTimeLimit: (timeLimit) => set({ scheduleRestoreTimeLimit: timeLimit }),
-        scheduleRestoreTimeLimitRandom: false,
-        setScheduleRestoreTimeLimitRandom: (random) => set({ scheduleRestoreTimeLimitRandom: random }),
         scheduleRiseColor: null,
         setScheduleRiseColor: (color) => set({ scheduleRiseColor: color }),
         scheduleResetColor: null,
@@ -250,9 +239,27 @@ export const useSettingsStore = create<SettingsStore>()(
           }
           if (persistedState?.defaultVoiceVolume == null) persistedState.defaultVoiceVolume = 1;
           if (persistedState?.defaultToneVolume == null) persistedState.defaultToneVolume = 1;
+          // Set default schedule patterns when never configured (undefined); don't overwrite [] (user cleared)
+          if (persistedState?.scheduleRise === undefined)
+            persistedState.scheduleRise = [...DEFAULT_SCHEDULE_PATTERNS.rise];
+          if (persistedState?.scheduleReset === undefined)
+            persistedState.scheduleReset = [...DEFAULT_SCHEDULE_PATTERNS.reset];
+          if (persistedState?.scheduleRestore === undefined)
+            persistedState.scheduleRestore = [...DEFAULT_SCHEDULE_PATTERNS.restore];
+          // Set default schedule time limits (3 min) when never configured; remove deprecated random flags
+          const defaultScheduleTime = ms("3 min");
+          if (persistedState?.scheduleRiseTimeLimit == null)
+            persistedState.scheduleRiseTimeLimit = defaultScheduleTime;
+          if (persistedState?.scheduleResetTimeLimit == null)
+            persistedState.scheduleResetTimeLimit = defaultScheduleTime;
+          if (persistedState?.scheduleRestoreTimeLimit == null)
+            persistedState.scheduleRestoreTimeLimit = defaultScheduleTime;
+          delete persistedState?.scheduleRiseTimeLimitRandom;
+          delete persistedState?.scheduleResetTimeLimitRandom;
+          delete persistedState?.scheduleRestoreTimeLimitRandom;
           return persistedState;
         },
-        version: 3,
+        version: 5,
       }
     )
   )

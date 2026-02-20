@@ -68,6 +68,7 @@ export const ExerciseComplete: FC = () => {
   const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
   const buttonBgColor = colorScheme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.06)";
   const buttonBorderColor = colorScheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)";
+  const circleBgColor = colorScheme === "dark" ? "rgba(0, 0, 0, 0.25)" : "rgba(255, 255, 255, 0.35)";
 
   return (
     <Animated.View className="flex-1 items-center justify-center" style={containerAnimatedStyle}>
@@ -84,47 +85,58 @@ export const ExerciseComplete: FC = () => {
       >
         How do you feel now?
       </Text>
-      <View className="flex-row justify-center px-4" style={{ gap: 32 }}>
+      <View className="flex-row justify-center px-4" style={{ gap: 20 }}>
         {(Object.keys(moodConfig) as Mood[]).map((mood) => {
           const config = moodConfig[mood];
           return (
-            <Pressable
+            <View
               key={mood}
-              onPress={() => {
-                console.log("Button pressed for mood:", mood);
-                handleMoodPress(mood);
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={({ pressed }) => ({
-                backgroundColor: selectedMood === mood 
-                  ? (colorScheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)")
-                  : pressed
-                  ? (colorScheme === "dark" ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.08)")
-                  : buttonBgColor,
-                borderWidth: selectedMood === mood ? 2 : 1,
-                borderColor: selectedMood === mood ? config.color : buttonBorderColor,
-                borderRadius: 16,
-                paddingVertical: 20,
-                paddingHorizontal: 28,
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: circleBgColor,
                 alignItems: "center",
-                minWidth: 90,
-                opacity: pressed ? 0.7 : 1,
-              })}
+                justifyContent: "center",
+              }}
             >
+              <Pressable
+                onPress={() => {
+                  console.log("Button pressed for mood:", mood);
+                  handleMoodPress(mood);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={({ pressed }) => ({
+                  backgroundColor: selectedMood === mood 
+                    ? (colorScheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)")
+                    : pressed
+                    ? (colorScheme === "dark" ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.08)")
+                    : buttonBgColor,
+                  borderWidth: selectedMood === mood ? 2 : 1,
+                  borderColor: selectedMood === mood ? config.color : buttonBorderColor,
+                  borderRadius: 16,
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                  alignItems: "center",
+                  minWidth: 56,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
               {config.iconSet === "ionicons" ? (
                 <Ionicons
                   name={config.icon as any}
-                  size={48}
+                  size={40}
                   color={config.color}
                 />
               ) : (
                 <MaterialCommunityIcons
                   name={config.icon as any}
-                  size={48}
+                  size={40}
                   color={config.color}
                 />
               )}
-            </Pressable>
+              </Pressable>
+            </View>
           );
         })}
       </View>

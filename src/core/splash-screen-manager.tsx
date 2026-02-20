@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import ms from "ms";
 import React, { PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
+import { playSplashChime } from "@nowoo/services/audio";
 import { useHomeScreenStatusStore } from "@nowoo/screens/home-screen/home-screen";
 import { delay } from "@nowoo/utils/delay";
 
@@ -34,7 +35,13 @@ try {
 
 const isVideoAsset = !!splashVideoAsset;
 
-// Force the splash-screen to stay visible for a bit to avoid jarring visuals
+// Chime plays this long after splash video starts
+const splashChimeDelay = ms("300 ms");
+
+// Splash ends (goes away) after this duration
+const splashVideoDuration = ms("2.5 sec");
+
+// Force the splash-screen to stay visible for a bit to avoid jarring visuals (image fallback)
 const waitBeforeHide = ms("1.5 sec");
 
 export const SplashScreenManager: React.FC<PropsWithChildren> = ({ children }) => {
@@ -109,32 +116,57 @@ const AnimatedSplashScreen: React.FC<PropsWithChildren> = ({ children }) => {
   }, [isAppReady, isHomeScreenReady, hasWaitedMinimum]);
 
   const videoRef = useRef<Video>(null);
-  const [hasVideoLoaded, setHasVideoLoaded] = useState(false);
+  const hasHiddenNativeSplash = useRef(false);
+  const hasStartedSplashSetup = useRef(false);
+  const chimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endSplashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (chimeTimerRef.current) clearTimeout(chimeTimerRef.current);
+      if (endSplashTimerRef.current) clearTimeout(endSplashTimerRef.current);
+    };
+  }, []);
+
+  const hideNativeSplash = useCallback(async () => {
+    if (hasHiddenNativeSplash.current) return;
+    hasHiddenNativeSplash.current = true;
+    try {
+      await SplashScreen.hideAsync();
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const onMediaLoaded = useCallback(async () => {
     try {
       await SplashScreen.hideAsync();
-      // Load stuff
       await Promise.all([]);
     } catch (e) {
-      // handle errors
+      /* ignore */
     } finally {
       setAppReady(true);
     }
   }, []);
 
-  const onVideoStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      if (!hasVideoLoaded) {
-        setHasVideoLoaded(true);
-        onMediaLoaded();
+  const onVideoStatusUpdate = useCallback(
+    (status: AVPlaybackStatus) => {
+      if (status.isLoaded && !hasStartedSplashSetup.current) {
+        hasStartedSplashSetup.current = true;
+        hideNativeSplash();
+        chimeTimerRef.current = setTimeout(() => {
+          chimeTimerRef.current = null;
+          playSplashChime();
+        }, splashChimeDelay);
+        endSplashTimerRef.current = setTimeout(() => {
+          endSplashTimerRef.current = null;
+          videoRef.current?.pauseAsync();
+          onMediaLoaded();
+        }, splashVideoDuration);
       }
-      // When video finishes, pause it to keep the last frame visible
-      if (status.didJustFinish) {
-        videoRef.current?.pauseAsync();
-      }
-    }
-  }, [hasVideoLoaded, onMediaLoaded]);
+    },
+    [hideNativeSplash, onMediaLoaded]
+  );
 
   return (
     <View style={{ flex: 1 }}>

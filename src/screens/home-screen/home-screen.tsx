@@ -188,7 +188,7 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
         paddingBottom: insets.bottom,
         paddingLeft: insets.left,
         paddingRight: insets.right,
-        backgroundColor: colorScheme === "dark" ? "#2d2d2d" : "#ffffff",
+        backgroundColor: colorScheme === "dark" ? "#3a3a3a" : "#ffffff",
       }}
     >
       <View

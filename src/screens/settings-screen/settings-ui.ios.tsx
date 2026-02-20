@@ -316,6 +316,7 @@ export const MultiSelectItem: FC<MultiSelectItemProps> = ({
   selectedValues,
   options,
   onValueChange,
+  emptyLabel,
   ...baseProps
 }) => {
   const { colorScheme } = useColorScheme();
@@ -334,7 +335,7 @@ export const MultiSelectItem: FC<MultiSelectItemProps> = ({
 
   const displayLabel =
     selectedValues.length === 0
-      ? "None selected"
+      ? (emptyLabel ?? "None selected")
       : selectedValues.length === 1
       ? (() => {
           const opt = options.find((o) => o.value === selectedValues[0]);
@@ -407,6 +408,19 @@ export const MultiSelectItem: FC<MultiSelectItemProps> = ({
   );
 };
 
+const textInputBoxStyle = (colorScheme: "dark" | "light" | undefined, multiline: boolean) => ({
+  flex: 1,
+  textAlign: "left" as const,
+  textAlignVertical: (multiline ? "top" : "center") as "top" | "center",
+  color: colorScheme === "dark" ? "#ffffff" : undefined,
+  minHeight: multiline ? 60 : 40,
+  padding: 8,
+  borderRadius: 8,
+  backgroundColor: colorScheme === "dark" ? "#2c2c2e" : "#f5f5f5",
+  borderWidth: 1,
+  borderColor: colorScheme === "dark" ? "#38383a" : "#e7e5e4",
+});
+
 export const TextInputItem: FC<TextInputItemProps> = ({
   value,
   placeholder,
@@ -415,54 +429,25 @@ export const TextInputItem: FC<TextInputItemProps> = ({
   ...baseProps
 }) => {
   const { colorScheme } = useColorScheme();
-  if (multiline) {
-    return (
-      <View style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
-        {baseProps.label && (
-          <Text style={{ 
-            marginBottom: 8,
-            color: colorScheme === "dark" ? "#ffffff" : undefined 
-          }}>
-            {baseProps.label}
-          </Text>
-        )}
-        <TextInput
-          style={{
-            flex: 1,
-            textAlign: "left",
-            textAlignVertical: "top",
-            color: colorScheme === "dark" ? "#ffffff" : undefined,
-            minHeight: 60,
-            padding: 8,
-            borderRadius: 8,
-            backgroundColor: colorScheme === "dark" ? "#2c2c2e" : "#f5f5f5",
-            borderWidth: 1,
-            borderColor: colorScheme === "dark" ? "#38383a" : "#e7e5e4",
-          }}
-          value={value}
-          placeholder={placeholder}
-          placeholderTextColor={colorScheme === "dark" ? "#999999" : colors["slate-500"]}
-          onChangeText={onValueChange}
-          multiline={multiline}
-        />
-      </View>
-    );
-  }
   return (
-    <BaseItem {...baseProps}>
-      <TextInput
-        style={{
-          flex: 1,
-          textAlign: "right",
+    <View style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
+      {baseProps.label && (
+        <Text style={{
+          marginBottom: 8,
           color: colorScheme === "dark" ? "#ffffff" : undefined,
-        }}
+        }}>
+          {baseProps.label}
+        </Text>
+      )}
+      <TextInput
+        style={textInputBoxStyle(colorScheme, multiline)}
         value={value}
         placeholder={placeholder}
         placeholderTextColor={colorScheme === "dark" ? "#999999" : colors["slate-500"]}
         onChangeText={onValueChange}
         multiline={multiline}
       />
-    </BaseItem>
+    </View>
   );
 };
 

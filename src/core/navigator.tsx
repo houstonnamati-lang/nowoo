@@ -47,7 +47,7 @@ export const Navigator: FC = () => {
   const isAuthenticated = authHydrated && (skipAuth || user !== null);
   const navigationRef = useNavigationContainerRef();
   const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
-  const backgroundColor = colorScheme === "dark" ? "#000000" : colors["stone-100"];
+  const backgroundColor = colorScheme === "dark" ? "#1a1a1a" : colors["stone-100"];
   const theme = {
     ...baseTheme,
     dark: colorScheme === "dark",

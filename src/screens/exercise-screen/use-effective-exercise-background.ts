@@ -1,16 +1,21 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { useSettingsStore } from "@nowoo/stores/settings";
 import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
 
+/** When true (custom session with useDefaults), always use main exercise background, never schedule overrides. */
+export const UseDefaultSettingsContext = React.createContext(false);
+
 /**
  * Returns the effective background color and image for the exercise screen.
- * When the current time falls in a Rise/Reset/Restore window and that schedule
- * has background overrides, those are used; otherwise the main exercise background.
+ * When useDefaultSettings (custom session with use defaults) is true, uses main exercise background.
+ * Otherwise, when the current time falls in a Rise/Reset/Restore window and that schedule
+ * has background overrides, those are used; else the main exercise background.
  */
 export function useEffectiveExerciseBackground(): {
   backgroundColor: string;
   backgroundImage: string | null;
 } {
+  const useDefaultSettings = React.useContext(UseDefaultSettingsContext);
   const scheduleRiseStartTime = useSettingsStore((state) => state.scheduleRiseStartTime);
   const scheduleRiseEndTime = useSettingsStore((state) => state.scheduleRiseEndTime);
   const scheduleResetStartTime = useSettingsStore((state) => state.scheduleResetStartTime);
@@ -27,6 +32,12 @@ export function useEffectiveExerciseBackground(): {
   const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
 
   return useMemo(() => {
+    if (useDefaultSettings) {
+      return {
+        backgroundColor: exerciseBackgroundColor,
+        backgroundImage: exerciseBackgroundImage,
+      };
+    }
     const activeCategory = getActiveScheduleCategory(
       scheduleRiseStartTime,
       scheduleRiseEndTime,
@@ -58,6 +69,9 @@ export function useEffectiveExerciseBackground(): {
       backgroundImage: exerciseBackgroundImage,
     };
   }, [
+    useDefaultSettings,
+    exerciseBackgroundColor,
+    exerciseBackgroundImage,
     scheduleRiseStartTime,
     scheduleRiseEndTime,
     scheduleResetStartTime,

@@ -22,6 +22,13 @@ export const PATTERN_BEST_FOR: Record<string, ScheduleCategory[]> = {
   ujjayi: ["reset", "restore"],
 };
 
+/** Optimal default patterns when user has not selected any for a schedule. */
+export const DEFAULT_SCHEDULE_PATTERNS: Record<ScheduleCategory, string[]> = {
+  rise: ["awake"],
+  reset: ["performance"],
+  restore: ["deep-calm"],
+};
+
 const DOT_SIZE = 8;
 const DOT_GAP = 4;
 

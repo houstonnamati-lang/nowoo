@@ -1,5 +1,6 @@
 import { patternPresets } from "@nowoo/assets/pattern-presets";
 import { PatternPreset } from "@nowoo/types/pattern-preset";
+import { DEFAULT_SCHEDULE_PATTERNS } from "@nowoo/utils/pattern-schedule-dots";
 
 export type ScheduleCategory = "rise" | "reset" | "restore" | null;
 
@@ -88,20 +89,16 @@ export const getRandomPatternFromSchedule = (
 
   switch (category) {
     case "rise":
-      patternIds = risePatternIds;
+      patternIds = risePatternIds.length > 0 ? risePatternIds : DEFAULT_SCHEDULE_PATTERNS.rise;
       break;
     case "reset":
-      patternIds = resetPatternIds;
+      patternIds = resetPatternIds.length > 0 ? resetPatternIds : DEFAULT_SCHEDULE_PATTERNS.reset;
       break;
     case "restore":
-      patternIds = restorePatternIds;
+      patternIds = restorePatternIds.length > 0 ? restorePatternIds : DEFAULT_SCHEDULE_PATTERNS.restore;
       break;
     default:
       return null;
-  }
-
-  if (patternIds.length === 0) {
-    return null;
   }
 
   // Get random index
