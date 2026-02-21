@@ -81,8 +81,18 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
       {(iconName || label) && (
         <View style={{ flexDirection: "row", alignItems: "flex-start", flexShrink: 1, flex: 1, minWidth: 0, marginRight: 8 }}>
           {iconName && (
-            <View style={{ marginRight: 8, borderRadius: 6, backgroundColor: iconBackgroundColor }}>
-              <Ionicons style={{ padding: 4 }} name={iconName} size={18} color="white" />
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                marginRight: 8,
+                borderRadius: 6,
+                backgroundColor: iconBackgroundColor,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name={iconName} size={18} color="white" />
             </View>
           )}
           <View style={{ flexDirection: "column", flexShrink: 1, flex: 1, minWidth: 0 }}>
@@ -127,7 +137,7 @@ const BaseItem: FC<PropsWithChildren<BaseItemProps>> = ({
           </View>
         </View>
       )}
-      <View style={{ flexShrink: 0, marginLeft: 8, minWidth: 36, paddingRight: 4 }}>
+      <View style={{ flexShrink: 1, minWidth: 36, marginLeft: 28, paddingRight: 4, overflow: "hidden" }}>
         {children}
       </View>
     </View>
@@ -153,6 +163,9 @@ export const LinkItem: FC<LinkItemProps> = ({ value, onPress, ...baseProps }) =>
   );
 };
 
+const hasReactNodeLabels = (opts: { label: string | React.ReactNode; value: string }[]) =>
+  opts.some((o) => typeof o.label !== "string");
+
 export const PickerItem: FC<PickerItemProps> = ({
   value,
   options,
@@ -168,22 +181,29 @@ export const PickerItem: FC<PickerItemProps> = ({
   const selectedOption = options?.find((option) => option.value === value);
   const displayLabel = selectedOption?.label || value || "Unknown";
   const hasSelection = value && selectedOption;
+  const useCustomList = options && hasReactNodeLabels(options);
 
   return (
     <>
       <Pressable onPress={toggleExpanded}>
         <BaseItem {...baseProps}>
-          <View className="flex-row items-center" style={{ flexShrink: 1, maxWidth: "100%" }}>
-            <Text 
-              style={{ 
-                color: colorScheme === "dark" ? "#007AFF" : undefined,
-                flexShrink: 1
-              }}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {displayLabel}
-            </Text>
+          <View className="flex-row items-center" style={{ flexShrink: 1, minWidth: 0, overflow: "hidden" }}>
+            {typeof displayLabel === "string" ? (
+              <Text
+                style={{
+                  color: colorScheme === "dark" ? "#007AFF" : undefined,
+                  flexShrink: 1,
+                }}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {displayLabel}
+              </Text>
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, minWidth: 0 }}>
+                {displayLabel}
+              </View>
+            )}
             {hasSelection && (
               <Ionicons
                 name="checkmark-circle"
@@ -195,13 +215,43 @@ export const PickerItem: FC<PickerItemProps> = ({
           </View>
         </BaseItem>
       </Pressable>
-      {expanded && options && (
+      {expanded && options && useCustomList && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+          {options.map(({ label, value: optValue }) => (
+            <Pressable
+              key={optValue}
+              onPress={() => {
+                onValueChange(optValue);
+                toggleExpanded();
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                backgroundColor: optValue === value ? (colorScheme === "dark" ? "rgba(0,122,255,0.2)" : "rgba(59,130,246,0.15)") : undefined,
+                borderRadius: 8,
+              }}
+            >
+              {typeof label === "string" ? (
+                <Text style={{ color: colorScheme === "dark" ? "#ffffff" : undefined, flex: 1 }}>{label}</Text>
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>{label}</View>
+              )}
+              {optValue === value && (
+                <Ionicons name="checkmark" size={20} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} style={{ marginLeft: 8 }} />
+              )}
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {expanded && options && !useCustomList && (
         <Picker selectedValue={value} onValueChange={onValueChange}>
-          {options.map(({ label, value }) => (
+          {options.map(({ label, value: optValue }) => (
             <Picker.Item
-              key={value}
-              label={label}
-              value={value}
+              key={optValue}
+              label={typeof label === "string" ? label : String(optValue)}
+              value={optValue}
               color={colorScheme === "dark" ? "white" : undefined}
             />
           ))}

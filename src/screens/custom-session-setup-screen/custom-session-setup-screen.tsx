@@ -8,7 +8,8 @@ import { RootStackParamList } from "@nowoo/core/navigator";
 import { colors } from "@nowoo/design/colors";
 import { SettingsUI } from "@nowoo/screens/settings-screen/settings-ui";
 import { useSettingsStore } from "@nowoo/stores/settings";
-import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
+import { FrequencyNoiseOptionLabel, FREQUENCY_BEST_FOR, NOISE_BEST_FOR } from "@nowoo/utils/pattern-schedule-dots";
 import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
 import ms from "ms";
@@ -17,7 +18,10 @@ export type CustomSessionSettings = {
   useDefaults: boolean;
   patternId?: string;
   guidedBreathingVoice?: GuidedBreathingMode;
-  frequencyTone?: FrequencyToneMode;
+  calmingFrequency?: CalmingFrequencyMode;
+  noiseBed?: NoiseBedMode;
+  /** @deprecated use calmingFrequency + noiseBed */
+  frequencyTone?: string;
   vibrationEnabled?: boolean;
   timeLimit?: number;
 };
@@ -31,7 +35,8 @@ export const CustomSessionSetupScreen: FC<
   // Get main settings for defaults
   const mainPatternId = useSettingsStore((state) => state.selectedPatternPresetId);
   const mainGuidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
-  const mainFrequencyTone = useSettingsStore((state) => state.frequencyTone);
+  const mainCalmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const mainNoiseBed = useSettingsStore((state) => state.noiseBed);
   const mainVibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const mainTimeLimit = useSettingsStore((state) => state.timeLimit);
   const customPatterns = useSettingsStore((state) => state.customPatterns);
@@ -41,7 +46,8 @@ export const CustomSessionSetupScreen: FC<
   const [useDefaults, setUseDefaults] = useState(true);
   const [selectedPatternId, setSelectedPatternId] = useState(mainPatternId);
   const [selectedGuidedBreathingVoice, setSelectedGuidedBreathingVoice] = useState(mainGuidedBreathingVoice);
-  const [selectedFrequencyTone, setSelectedFrequencyTone] = useState(mainFrequencyTone);
+  const [selectedCalmingFrequency, setSelectedCalmingFrequency] = useState(mainCalmingFrequency);
+  const [selectedNoiseBed, setSelectedNoiseBed] = useState(mainNoiseBed);
   const [selectedVibrationEnabled, setSelectedVibrationEnabled] = useState(mainVibrationEnabled);
   const [selectedTimeLimit, setSelectedTimeLimit] = useState(ms("5 min"));
   
@@ -53,7 +59,8 @@ export const CustomSessionSetupScreen: FC<
       ...(useDefaults ? {} : {
         patternId: selectedPatternId,
         guidedBreathingVoice: selectedGuidedBreathingVoice,
-        frequencyTone: selectedFrequencyTone,
+        calmingFrequency: selectedCalmingFrequency,
+        noiseBed: selectedNoiseBed,
         vibrationEnabled: selectedVibrationEnabled,
         timeLimit: selectedTimeLimit,
       }),
@@ -179,19 +186,27 @@ export const CustomSessionSetupScreen: FC<
                     label="Calming frequency"
                     iconName="musical-notes"
                     iconBackgroundColor="#60a5fa"
-                    value={selectedFrequencyTone}
-                    options={
-                      [
-                        { value: "200hz", label: "200 Hz" },
-                        { value: "136hz", label: "136 Hz" },
-                        { value: "100hz", label: "100 Hz" },
-                        { value: "brown", label: "Brown noise" },
-                        { value: "green", label: "Green noise" },
-                        { value: "pink", label: "Pink noise" },
-                        { value: "disabled", label: "Disabled" },
-                      ] as { value: FrequencyToneMode; label: string }[]
-                    }
-                    onValueChange={setSelectedFrequencyTone}
+                    value={selectedCalmingFrequency}
+                    options={[
+                      { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "136hz", label: <FrequencyNoiseOptionLabel text="136 Hz" categories={FREQUENCY_BEST_FOR["136hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "100hz", label: <FrequencyNoiseOptionLabel text="100 Hz" categories={FREQUENCY_BEST_FOR["100hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "disabled", label: "Disabled" },
+                    ]}
+                    onValueChange={setSelectedCalmingFrequency}
+                  />
+                  <SettingsUI.PickerItem
+                    label="Noise bed"
+                    iconName="musical-notes"
+                    iconBackgroundColor="#60a5fa"
+                    value={selectedNoiseBed}
+                    options={[
+                      { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "green", label: <FrequencyNoiseOptionLabel text="Green noise" categories={NOISE_BEST_FOR.green} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "pink", label: <FrequencyNoiseOptionLabel text="Pink noise" categories={NOISE_BEST_FOR.pink} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "disabled", label: "Disabled" },
+                    ]}
+                    onValueChange={setSelectedNoiseBed}
                   />
                 </SettingsUI.Section>
                 

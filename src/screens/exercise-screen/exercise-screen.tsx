@@ -50,7 +50,8 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
 }) => {
   const customSettings = route.params?.customSettings;
   const mainGuidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
-  const mainFrequencyTone = useSettingsStore((state) => state.frequencyTone);
+  const mainCalmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const mainNoiseBed = useSettingsStore((state) => state.noiseBed);
   const scheduleRiseStartTime = useSettingsStore((state) => state.scheduleRiseStartTime);
   const scheduleRiseEndTime = useSettingsStore((state) => state.scheduleRiseEndTime);
   const scheduleResetStartTime = useSettingsStore((state) => state.scheduleResetStartTime);
@@ -61,12 +62,28 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
   const scheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.scheduleResetGuidedBreathingVoice);
   const scheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRestoreGuidedBreathingVoice);
   const mainVibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const mainVibrationStrength = useSettingsStore((state) => state.vibrationStrength);
   const scheduleRiseVibrationEnabled = useSettingsStore((state) => state.scheduleRiseVibrationEnabled);
+  const scheduleRiseVibrationStrength = useSettingsStore((state) => state.scheduleRiseVibrationStrength);
+  const scheduleResetVibrationStrength = useSettingsStore((state) => state.scheduleResetVibrationStrength);
   const scheduleResetVibrationEnabled = useSettingsStore((state) => state.scheduleResetVibrationEnabled);
+  const scheduleRestoreVibrationStrength = useSettingsStore((state) => state.scheduleRestoreVibrationStrength);
   const scheduleRestoreVibrationEnabled = useSettingsStore((state) => state.scheduleRestoreVibrationEnabled);
   const scheduleRiseColor = useSettingsStore((state) => state.scheduleRiseColor);
   const scheduleResetColor = useSettingsStore((state) => state.scheduleResetColor);
   const scheduleRestoreColor = useSettingsStore((state) => state.scheduleRestoreColor);
+  const scheduleRiseCalmingFrequency = useSettingsStore((state) => state.scheduleRiseCalmingFrequency);
+  const scheduleRiseNoiseBed = useSettingsStore((state) => state.scheduleRiseNoiseBed);
+  const scheduleResetCalmingFrequency = useSettingsStore((state) => state.scheduleResetCalmingFrequency);
+  const scheduleResetNoiseBed = useSettingsStore((state) => state.scheduleResetNoiseBed);
+  const scheduleRestoreCalmingFrequency = useSettingsStore((state) => state.scheduleRestoreCalmingFrequency);
+  const scheduleRestoreNoiseBed = useSettingsStore((state) => state.scheduleRestoreNoiseBed);
+  const scheduleRiseVoiceVolume = useSettingsStore((state) => state.scheduleRiseVoiceVolume);
+  const scheduleResetVoiceVolume = useSettingsStore((state) => state.scheduleResetVoiceVolume);
+  const scheduleRestoreVoiceVolume = useSettingsStore((state) => state.scheduleRestoreVoiceVolume);
+  const scheduleRiseToneVolume = useSettingsStore((state) => state.scheduleRiseToneVolume);
+  const scheduleResetToneVolume = useSettingsStore((state) => state.scheduleResetToneVolume);
+  const exerciseAnimationColor = useSettingsStore((state) => state.exerciseAnimationColor);
   const { backgroundColor: exerciseBackgroundColor, backgroundImage: exerciseBackgroundImage } =
     useEffectiveExerciseBackground();
   const exerciseBackgroundImageSource = exerciseBackgroundImage
@@ -100,11 +117,6 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
     }
     return mainGuidedBreathingVoice;
   })();
-  const frequencyTone = customSettings?.useDefaults
-    ? mainFrequencyTone
-    : (customSettings?.frequencyTone ?? mainFrequencyTone);
-  
-  // When no custom session and we're in a schedule window, use schedule tone+noise (Rise/Reset/Restore)
   const scheduleCategoryForAudio = (() => {
     if (customSettings) return null;
     return getActiveScheduleCategory(
@@ -116,17 +128,76 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
       scheduleRestoreEndTime
     );
   })();
+
+  // Effective calming frequency and noise bed
+  const calmingFrequency = (() => {
+    if (customSettings?.useDefaults) return mainCalmingFrequency;
+    if (customSettings?.calmingFrequency !== undefined) return customSettings.calmingFrequency;
+    // Legacy: customSettings.frequencyTone (single picker)
+    if (customSettings?.frequencyTone) {
+      const ft = customSettings.frequencyTone as string;
+      if (["200hz", "136hz", "100hz"].includes(ft)) return ft as import("@nowoo/types/frequency-tone-mode").CalmingFrequencyMode;
+      return "disabled";
+    }
+    const cat = scheduleCategoryForAudio;
+    if (cat === "rise" && scheduleRiseCalmingFrequency !== null) return scheduleRiseCalmingFrequency;
+    if (cat === "reset" && scheduleResetCalmingFrequency !== null) return scheduleResetCalmingFrequency;
+    if (cat === "restore" && scheduleRestoreCalmingFrequency !== null) return scheduleRestoreCalmingFrequency;
+    return mainCalmingFrequency;
+  })();
+  const noiseBed = (() => {
+    if (customSettings?.useDefaults) return mainNoiseBed;
+    if (customSettings?.noiseBed !== undefined) return customSettings.noiseBed;
+    if (customSettings?.frequencyTone) {
+      const ft = customSettings.frequencyTone as string;
+      if (["brown", "green", "pink"].includes(ft)) return ft as import("@nowoo/types/frequency-tone-mode").NoiseBedMode;
+      return "disabled";
+    }
+    const cat = scheduleCategoryForAudio;
+    if (cat === "rise" && scheduleRiseNoiseBed !== null) return scheduleRiseNoiseBed;
+    if (cat === "reset" && scheduleResetNoiseBed !== null) return scheduleResetNoiseBed;
+    if (cat === "restore" && scheduleRestoreNoiseBed !== null) return scheduleRestoreNoiseBed;
+    return mainNoiseBed;
+  })();
   
   const [status, setStatus] = useState<ExerciseStatus>("interlude");
   const [isPaused, setIsPaused] = useState(false);
   const [showPauseDialog, setShowPauseDialog] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [voiceVolume, setVoiceVolume] = useState(() =>
-    useSettingsStore.getState().defaultVoiceVolume ?? 1
-  );
-  const [toneVolume, setToneVolume] = useState(() =>
-    useSettingsStore.getState().defaultToneVolume ?? 1
-  );
+  const [voiceVolume, setVoiceVolume] = useState(() => {
+    const state = useSettingsStore.getState();
+    const custom = route.params?.customSettings;
+    if (custom) return state.defaultVoiceVolume ?? 1;
+    const cat = getActiveScheduleCategory(
+      state.scheduleRiseStartTime,
+      state.scheduleRiseEndTime,
+      state.scheduleResetStartTime,
+      state.scheduleResetEndTime,
+      state.scheduleRestoreStartTime,
+      state.scheduleRestoreEndTime
+    );
+    if (cat === "rise" && state.scheduleRiseVoiceVolume !== null) return state.scheduleRiseVoiceVolume;
+    if (cat === "reset" && state.scheduleResetVoiceVolume !== null) return state.scheduleResetVoiceVolume;
+    if (cat === "restore" && state.scheduleRestoreVoiceVolume !== null) return state.scheduleRestoreVoiceVolume;
+    return state.defaultVoiceVolume ?? 1;
+  });
+  const [toneVolume, setToneVolume] = useState(() => {
+    const state = useSettingsStore.getState();
+    const custom = route.params?.customSettings;
+    if (custom) return state.defaultToneVolume ?? 1;
+    const cat = getActiveScheduleCategory(
+      state.scheduleRiseStartTime,
+      state.scheduleRiseEndTime,
+      state.scheduleResetStartTime,
+      state.scheduleResetEndTime,
+      state.scheduleRestoreStartTime,
+      state.scheduleRestoreEndTime
+    );
+    if (cat === "rise" && state.scheduleRiseToneVolume !== null) return state.scheduleRiseToneVolume;
+    if (cat === "reset" && state.scheduleResetToneVolume !== null) return state.scheduleResetToneVolume;
+    if (cat === "restore" && state.scheduleRestoreToneVolume !== null) return state.scheduleRestoreToneVolume;
+    return state.defaultToneVolume ?? 1;
+  });
   const [hapticsOverride, setHapticsOverride] = useState<boolean | null>(null);
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
@@ -149,9 +220,32 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
   })();
   const effectiveVibrationEnabled = hapticsOverride !== null ? hapticsOverride : computedVibrationEnabled;
 
+  const effectiveVibrationStrength = (() => {
+    if (customSettings?.useDefaults || customSettings) return mainVibrationStrength;
+    const activeCategory = getActiveScheduleCategory(
+      scheduleRiseStartTime,
+      scheduleRiseEndTime,
+      scheduleResetStartTime,
+      scheduleResetEndTime,
+      scheduleRestoreStartTime,
+      scheduleRestoreEndTime
+    );
+    if (activeCategory === "rise" && scheduleRiseVibrationStrength !== null) return scheduleRiseVibrationStrength;
+    if (activeCategory === "reset" && scheduleResetVibrationStrength !== null) return scheduleResetVibrationStrength;
+    if (activeCategory === "restore" && scheduleRestoreVibrationStrength !== null) return scheduleRestoreVibrationStrength;
+    return mainVibrationStrength;
+  })();
+
   const { playExerciseStepAudio, playExerciseCompletedAudio, playSessionTransitionClips, whenAudioReady } =
     useExerciseAudio(guidedBreathingVoice);
-  useFrequencyTone(frequencyTone, status === "running" && !isPaused, scheduleCategoryForAudio);
+  const scheduleHasOverride = (() => {
+    if (!scheduleCategoryForAudio) return false;
+    if (scheduleCategoryForAudio === "rise" && (scheduleRiseCalmingFrequency !== null || scheduleRiseNoiseBed !== null)) return true;
+    if (scheduleCategoryForAudio === "reset" && (scheduleResetCalmingFrequency !== null || scheduleResetNoiseBed !== null)) return true;
+    if (scheduleCategoryForAudio === "restore" && (scheduleRestoreCalmingFrequency !== null || scheduleRestoreNoiseBed !== null)) return true;
+    return false;
+  })();
+  useFrequencyTone(calmingFrequency, noiseBed, status === "running" && !isPaused, scheduleCategoryForAudio, scheduleHasOverride);
 
   React.useEffect(() => {
     setGuidedBreathingVolume(voiceVolume);
@@ -162,7 +256,7 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
   const breathingAnimationColor = useMemo(() => {
     if (customSettings) {
       // Custom sessions use default color
-      return colors.pastel.orange;
+      return exerciseAnimationColor;
     }
     
     // Determine active schedule category for color
@@ -186,10 +280,11 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
       return scheduleRestoreColor;
     }
     
-    // Default color
-    return colors.pastel.orange;
+    // Default color from Quick Breath settings
+    return exerciseAnimationColor;
   }, [
     customSettings,
+    exerciseAnimationColor,
     scheduleRiseStartTime,
     scheduleRiseEndTime,
     scheduleResetStartTime,
@@ -272,6 +367,7 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
             customSettings={customSettings}
             isPaused={isPaused}
             effectiveVibrationEnabled={effectiveVibrationEnabled}
+            vibrationStrength={effectiveVibrationStrength}
             breathingAnimationColor={breathingAnimationColor}
           />
           <View className="flex-row items-center justify-center gap-4 pb-10 pt-6">
@@ -567,6 +663,7 @@ interface ExerciseRunningFragmentProps {
   customSettings?: import("@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings;
   isPaused?: boolean;
   effectiveVibrationEnabled?: boolean;
+  vibrationStrength?: number;
   breathingAnimationColor: string;
 }
 
@@ -578,6 +675,7 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
   customSettings,
   isPaused = false,
   effectiveVibrationEnabled = true,
+  vibrationStrength = 1,
   breathingAnimationColor,
 }) => {
   const {
@@ -638,7 +736,7 @@ const ExerciseRunningFragment: FC<ExerciseRunningFragmentProps> = ({
     true
   );
 
-  useExerciseHaptics(currentStep, effectiveVibrationEnabled);
+  useExerciseHaptics(currentStep, effectiveVibrationEnabled, vibrationStrength);
 
   const unmountContentAnimation = animate(unmountContentAnimVal, {
     toValue: 0,

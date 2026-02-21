@@ -1,25 +1,32 @@
 import { Audio } from "expo-av";
 import { sounds } from "@nowoo/assets/sounds";
-import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
 
 export type ScheduleCategory = "rise" | "reset" | "restore";
 
-let frequencyToneSound: Audio.Sound | undefined;
-let isPlaying = false;
-
-// Schedule: tone + optional noise bed. Rise uses pink at very low volume; reset/restore use brown.
-let scheduleToneSound: Audio.Sound | undefined;
-let scheduleNoiseSound: Audio.Sound | undefined;
-let schedulePlaying = false;
-
-const frequencyToneAssets: Record<Exclude<FrequencyToneMode, "disabled">, any> = {
+const toneAssets: Record<Exclude<CalmingFrequencyMode, "disabled">, any> = {
   "200hz": sounds.frequency200hz,
   "136hz": sounds.frequency136hz,
   "100hz": sounds.frequency100hz,
+};
+
+const noiseAssets: Record<Exclude<NoiseBedMode, "disabled">, any> = {
   brown: sounds.brownNoise,
   green: sounds.greenNoise,
   pink: sounds.pinkNoise,
 };
+
+// Picker mode: user-selected tone and/or noise
+let pickerToneSound: Audio.Sound | undefined;
+let pickerNoiseSound: Audio.Sound | undefined;
+let pickerPlaying = false;
+let pickerToneTargetVolume = 0.6;
+let pickerNoiseTargetVolume = 0.3;
+
+// Schedule: tone + noise (Rise/Reset/Restore defaults)
+let scheduleToneSound: Audio.Sound | undefined;
+let scheduleNoiseSound: Audio.Sound | undefined;
+let schedulePlaying = false;
 
 // Base tone volume; schedule tone louder so it’s audible over noise
 const TONE_VOLUME = 0.6;
@@ -29,16 +36,18 @@ const SCHEDULE_TONE_VOLUME_100HZ = 1; // Restore 100Hz – max gain
 const NOISE_VOLUME_RISE = 0.15;
 const NOISE_VOLUME_RESET_RESTORE = 0.3;
 
-let pickerToneTargetVolume = TONE_VOLUME;
-let scheduleToneTargetVolume = SCHEDULE_TONE_VOLUME;
+let scheduleToneTargetVolume = 0.9;
 let scheduleNoiseTargetVolume = NOISE_VOLUME_RESET_RESTORE;
 
 let toneVolumeMultiplier = 1;
 
 export function setToneVolumeMultiplier(multiplier: number) {
   toneVolumeMultiplier = Math.max(0, Math.min(1, multiplier));
-  if (frequencyToneSound && isPlaying) {
-    frequencyToneSound.setVolumeAsync(pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
+  if (pickerToneSound && pickerPlaying) {
+    pickerToneSound.setVolumeAsync(pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
+  }
+  if (pickerNoiseSound && pickerPlaying) {
+    pickerNoiseSound.setVolumeAsync(pickerNoiseTargetVolume * toneVolumeMultiplier).catch(() => {});
   }
   if (scheduleToneSound && schedulePlaying) {
     scheduleToneSound.setVolumeAsync(scheduleToneTargetVolume * toneVolumeMultiplier).catch(() => {});
@@ -64,48 +73,114 @@ async function fadeVolume(
   }
 }
 
-export async function setupFrequencyTone(frequencyToneMode: FrequencyToneMode) {
-  if (frequencyToneMode === "disabled") {
-    return;
-  }
+export async function setupPickerBackground(
+  calmingFrequency: CalmingFrequencyMode,
+  noiseBed: NoiseBedMode
+) {
+  await releasePickerBackground();
+  const hasTone = calmingFrequency !== "disabled";
+  const hasNoise = noiseBed !== "disabled";
+  if (!hasTone && !hasNoise) return;
 
   try {
-    pickerToneTargetVolume =
-      frequencyToneMode === "100hz" ? TONE_VOLUME_100HZ : TONE_VOLUME;
-    const { sound } = await Audio.Sound.createAsync(frequencyToneAssets[frequencyToneMode], {
-      shouldPlay: false,
-      isLooping: true,
-      volume: pickerToneTargetVolume,
-    });
-    frequencyToneSound = sound;
+    if (hasTone) {
+      pickerToneTargetVolume = calmingFrequency === "100hz" ? TONE_VOLUME_100HZ : TONE_VOLUME;
+      const { sound } = await Audio.Sound.createAsync(toneAssets[calmingFrequency], {
+        shouldPlay: false,
+        isLooping: true,
+        volume: pickerToneTargetVolume,
+      });
+      pickerToneSound = sound;
+    }
+    if (hasNoise) {
+      pickerNoiseTargetVolume = 0.3;
+      const { sound } = await Audio.Sound.createAsync(noiseAssets[noiseBed], {
+        shouldPlay: false,
+        isLooping: true,
+        volume: pickerNoiseTargetVolume,
+      });
+      pickerNoiseSound = sound;
+    }
   } catch (error) {
-    console.error("Error setting up frequency tone:", error);
+    console.error("Error setting up picker background:", error);
+    await releasePickerBackground();
   }
 }
 
-export async function startFrequencyTone() {
-  if (frequencyToneSound && !isPlaying) {
-    await frequencyToneSound.setVolumeAsync(0);
-    await frequencyToneSound.playAsync();
-    isPlaying = true;
-    fadeVolume(frequencyToneSound, 0, pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
+export async function startPickerBackground(options?: { quickFade?: boolean }) {
+  if (pickerPlaying) return;
+  pickerPlaying = true;
+  const fadeMs = options?.quickFade ? 150 : FADE_MS;
+  const steps = Math.max(5, Math.round(fadeMs / 40));
+  const stepMs = fadeMs / steps;
+  const runFade = async (sound: Audio.Sound, toVol: number) => {
+    await sound.setVolumeAsync(0);
+    for (let i = 1; i <= steps; i++) {
+      const v = (toVol * i) / steps;
+      await sound.setVolumeAsync(v);
+      if (i < steps) await new Promise((r) => setTimeout(r, stepMs));
+    }
+  };
+  if (pickerToneSound) {
+    await pickerToneSound.setVolumeAsync(0);
+    await pickerToneSound.playAsync();
+    runFade(pickerToneSound, pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
   }
+  if (pickerNoiseSound) {
+    await pickerNoiseSound.setVolumeAsync(0);
+    await pickerNoiseSound.playAsync();
+    runFade(pickerNoiseSound, pickerNoiseTargetVolume * toneVolumeMultiplier).catch(() => {});
+  }
+}
+
+export async function stopPickerBackground() {
+  if (!pickerPlaying) return;
+  pickerPlaying = false;
+  if (pickerToneSound) {
+    await fadeVolume(pickerToneSound, pickerToneTargetVolume * toneVolumeMultiplier, 0);
+    await pickerToneSound.pauseAsync();
+  }
+  if (pickerNoiseSound) {
+    await fadeVolume(pickerNoiseSound, pickerNoiseTargetVolume * toneVolumeMultiplier, 0);
+    await pickerNoiseSound.pauseAsync();
+  }
+}
+
+export async function releasePickerBackground() {
+  const tone = pickerToneSound;
+  const noise = pickerNoiseSound;
+  pickerToneSound = undefined;
+  pickerNoiseSound = undefined;
+  pickerPlaying = false;
+  try {
+    if (tone) await tone.unloadAsync();
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    if (noise) await noise.unloadAsync();
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+export async function setupFrequencyTone(
+  calmingFrequency: CalmingFrequencyMode,
+  noiseBed: NoiseBedMode = "disabled"
+) {
+  await setupPickerBackground(calmingFrequency, noiseBed);
+}
+
+export async function startFrequencyTone(options?: { quickFade?: boolean }) {
+  await startPickerBackground(options);
 }
 
 export async function stopFrequencyTone() {
-  if (frequencyToneSound && isPlaying) {
-    isPlaying = false;
-    await fadeVolume(frequencyToneSound, pickerToneTargetVolume * toneVolumeMultiplier, 0);
-    await frequencyToneSound.pauseAsync();
-  }
+  await stopPickerBackground();
 }
 
 export async function releaseFrequencyTone() {
-  if (frequencyToneSound) {
-    await frequencyToneSound.unloadAsync();
-    frequencyToneSound = undefined;
-    isPlaying = false;
-  }
+  await releasePickerBackground();
 }
 
 // Delays to reduce iOS AVFoundation -11819 errors (teardown/load race)

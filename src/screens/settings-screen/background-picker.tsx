@@ -40,6 +40,24 @@ export const BACKGROUND_IMAGES: BackgroundImageOption[] = [
     image: images.screenBgs.desertSunrise,
     thumbnail: images.screenBgThumbnails.desertSunrise,
   },
+  {
+    value: "mountainNight",
+    label: "Mountain Night",
+    image: images.screenBgs.mountainNight,
+    thumbnail: images.screenBgThumbnails.mountainNight,
+  },
+  {
+    value: "oceanNight",
+    label: "Ocean Night",
+    image: images.screenBgs.oceanNight,
+    thumbnail: images.screenBgThumbnails.oceanNight,
+  },
+  {
+    value: "desertNight",
+    label: "Desert Night",
+    image: images.screenBgs.desertNight,
+    thumbnail: images.screenBgThumbnails.desertNight,
+  },
 ];
 
 interface BackgroundPickerProps {

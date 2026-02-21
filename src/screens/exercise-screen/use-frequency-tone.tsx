@@ -1,53 +1,68 @@
 import { useEffect } from "react";
 import {
-  setupFrequencyTone,
-  startFrequencyTone,
-  stopFrequencyTone,
-  releaseFrequencyTone,
+  setupPickerBackground,
+  startPickerBackground,
+  stopPickerBackground,
+  releasePickerBackground,
   setupScheduleBackground,
   startScheduleBackground,
   stopScheduleBackground,
   releaseScheduleBackground,
   ScheduleCategory,
 } from "@nowoo/services/frequency-tone";
-import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
 
 export const useFrequencyTone = (
-  frequencyToneMode: FrequencyToneMode,
+  calmingFrequency: CalmingFrequencyMode,
+  noiseBed: NoiseBedMode,
   isRunning: boolean,
-  scheduleCategory: ScheduleCategory | null = null
+  scheduleCategory: ScheduleCategory | null = null,
+  scheduleHasOverride: boolean = false
 ) => {
-  // When in a schedule window (category set), use schedule tone+noise; otherwise use picker selection
   const useSchedule = scheduleCategory !== null;
+  const useScheduleOverride = useSchedule && scheduleHasOverride;
+  const hasSound = calmingFrequency !== "disabled" || noiseBed !== "disabled";
 
   useEffect(() => {
-    if (useSchedule) {
+    if (useScheduleOverride && hasSound) {
+      setupPickerBackground(calmingFrequency, noiseBed);
+      return () => {
+        releasePickerBackground();
+      };
+    }
+    if (useSchedule && !scheduleHasOverride) {
       setupScheduleBackground(scheduleCategory!);
       return () => {
         releaseScheduleBackground();
       };
     }
-    if (frequencyToneMode !== "disabled") {
-      setupFrequencyTone(frequencyToneMode);
+    if (!useSchedule && hasSound) {
+      setupPickerBackground(calmingFrequency, noiseBed);
       return () => {
-        releaseFrequencyTone();
+        releasePickerBackground();
       };
     }
-  }, [frequencyToneMode, useSchedule, scheduleCategory]);
+  }, [calmingFrequency, noiseBed, useSchedule, useScheduleOverride, scheduleHasOverride, scheduleCategory, hasSound]);
 
   useEffect(() => {
-    if (useSchedule) {
+    if (useScheduleOverride) {
+      if (hasSound && isRunning) {
+        startPickerBackground();
+      } else {
+        stopPickerBackground();
+      }
+    } else if (useSchedule) {
       if (isRunning) {
         startScheduleBackground();
       } else {
         stopScheduleBackground();
       }
     } else {
-      if (frequencyToneMode !== "disabled" && isRunning) {
-        startFrequencyTone();
+      if (hasSound && isRunning) {
+        startPickerBackground();
       } else {
-        stopFrequencyTone();
+        stopPickerBackground();
       }
     }
-  }, [frequencyToneMode, useSchedule, scheduleCategory, isRunning]);
+  }, [calmingFrequency, noiseBed, useSchedule, useScheduleOverride, scheduleHasOverride, scheduleCategory, hasSound, isRunning]);
 };

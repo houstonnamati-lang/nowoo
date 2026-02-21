@@ -6,6 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 export const BREATHING_COLORS = [
   { value: "#ffffff", label: "White", color: "#ffffff" },
   { value: "#000000", label: "Black", color: "#000000" },
+  { value: "#4a5568", label: "Steel", color: "#4a5568" },
   { value: "#166534", label: "Dark Green", color: "#166534" },
   { value: "#fb923c", label: "Light Orange", color: "#fb923c" },
   { value: "#581c87", label: "Deep Purple", color: "#581c87" },

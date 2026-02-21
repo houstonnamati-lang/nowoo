@@ -1,8 +1,8 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
 import ms from "ms";
-import React, { FC, useEffect } from "react";
-import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable } from "react-native";
+import React, { FC, useEffect, useState } from "react";
+import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions } from "react-native";
 import Slider from "@react-native-community/slider";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
@@ -16,11 +16,12 @@ import {
   useSettingsStore,
 } from "@nowoo/stores/settings";
 import { useAuthStore } from "@nowoo/stores/auth";
-import { FrequencyToneMode } from "@nowoo/types/frequency-tone-mode";
+import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
 import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
 import { PatternPreset } from "@nowoo/types/pattern-preset";
 import { validateScheduleTimeRange } from "@nowoo/utils/schedule-utils";
 import { playVoiceVolumePreview } from "@nowoo/services/audio";
+import { playVibrationStrengthPreview } from "@nowoo/screens/exercise-screen/use-exercise-haptics";
 import {
   setupFrequencyTone,
   startFrequencyTone,
@@ -28,9 +29,15 @@ import {
   releaseFrequencyTone,
   setToneVolumeMultiplier,
 } from "@nowoo/services/frequency-tone";
-import { ScheduleDots } from "@nowoo/utils/pattern-schedule-dots";
+import {
+  ScheduleDots,
+  FrequencyNoiseOptionLabel,
+  FREQUENCY_BEST_FOR,
+  NOISE_BEST_FOR,
+} from "@nowoo/utils/pattern-schedule-dots";
 import { ColorPicker } from "./color-picker";
 import { BackgroundPicker } from "./background-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const customDurationLimits = [
   [ms("1 sec"), ms("99 sec")],
@@ -47,7 +54,10 @@ type VolumeSliderRowProps = {
   onValueChange: (v: number) => void;
   colorScheme: "dark" | "light" | undefined;
   onSlidingStart?: () => void;
-  onSlidingComplete?: () => void;
+  /** Called when slide ends. Receives final value so store can be updated without causing re-renders during drag. */
+  onSlidingComplete?: (finalValue: number) => void | Promise<void>;
+  /** Throttle onValueChange to avoid audio glitches from rapid volume updates (ms) */
+  throttleMs?: number;
 };
 
 const VolumeSliderRow: FC<VolumeSliderRowProps> = ({
@@ -57,11 +67,43 @@ const VolumeSliderRow: FC<VolumeSliderRowProps> = ({
   colorScheme,
   onSlidingStart,
   onSlidingComplete,
+  throttleMs,
 }) => {
   const textColor = colorScheme === "dark" ? "#ffffff" : undefined;
   const trackMin = colorScheme === "dark" ? "#81b0ff" : colors["blue-500"];
   const trackMax = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
   const thumb = colorScheme === "dark" ? "#f5f5f5" : colors["blue-500"];
+
+  // Use local state during slide to avoid store updates triggering Slider value prop changes
+  // (which can re-fire onSlidingStart and restart audio)
+  const [localValue, setLocalValue] = React.useState(value);
+  const [isSliding, setIsSliding] = React.useState(false);
+  const latestValueRef = React.useRef(value);
+  const lastVolumeUpdateRef = React.useRef(0);
+  React.useEffect(() => {
+    if (!isSliding) setLocalValue(value);
+    latestValueRef.current = value;
+  }, [value, isSliding]);
+
+  const displayValue = isSliding ? localValue : value;
+
+  const handleValueChange = React.useCallback(
+    (v: number) => {
+      setLocalValue(v);
+      latestValueRef.current = v;
+      if (throttleMs != null) {
+        const now = Date.now();
+        if (now - lastVolumeUpdateRef.current >= throttleMs) {
+          lastVolumeUpdateRef.current = now;
+          onValueChange(v);
+        }
+      } else {
+        onValueChange(v);
+      }
+    },
+    [onValueChange, throttleMs]
+  );
+
   return (
     <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
       <Text style={{ marginBottom: 6, color: textColor }}>{label}</Text>
@@ -70,15 +112,22 @@ const VolumeSliderRow: FC<VolumeSliderRowProps> = ({
           style={{ flex: 1, height: 24 }}
           minimumValue={0}
           maximumValue={1}
-          value={value}
-          onValueChange={onValueChange}
-          onSlidingStart={onSlidingStart}
-          onSlidingComplete={onSlidingComplete}
+          value={displayValue}
+          onValueChange={handleValueChange}
+          onSlidingStart={() => {
+            setIsSliding(true);
+            onSlidingStart?.();
+          }}
+          onSlidingComplete={() => {
+            const finalValue = latestValueRef.current;
+            setIsSliding(false);
+            onSlidingComplete?.(finalValue);
+          }}
           minimumTrackTintColor={trackMin}
           maximumTrackTintColor={trackMax}
           thumbTintColor={thumb}
         />
-        <Text style={{ minWidth: 40, color: textColor }}>{Math.round(value * 100)}%</Text>
+        <Text style={{ minWidth: 40, color: textColor }}>{Math.round(displayValue * 100)}%</Text>
       </View>
     </View>
   );
@@ -88,6 +137,9 @@ export const SettingsRootScreen: FC<
   NativeStackScreenProps<SettingsStackParamList, "SettingsRoot">
 > = ({ navigation }) => {
   console.log("SettingsRootScreen RENDERED");
+  const [showQuickBreathSheet, setShowQuickBreathSheet] = useState(false);
+  const [quickBreathSubmenu, setQuickBreathSubmenu] = useState<"main" | "sounds" | "appearance">("main");
+  const insets = useSafeAreaInsets();
   
   const selectedPatternName = useSelectedPatternName();
   const selectedPatternDurations = useSelectedPatternSteps();
@@ -97,12 +149,16 @@ export const SettingsRootScreen: FC<
   const setDefaultVoiceVolume = useSettingsStore((state) => state.setDefaultVoiceVolume);
   const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
   const setDefaultToneVolume = useSettingsStore((state) => state.setDefaultToneVolume);
-  const frequencyTone = useSettingsStore((state) => state.frequencyTone);
+  const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const noiseBed = useSettingsStore((state) => state.noiseBed);
+  const setCalmingFrequency = useSettingsStore((state) => state.setCalmingFrequency);
+  const setNoiseBed = useSettingsStore((state) => state.setNoiseBed);
   const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
   const setExerciseBackgroundColor = useSettingsStore((state) => state.setExerciseBackgroundColor);
   const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
   const setExerciseBackgroundImage = useSettingsStore((state) => state.setExerciseBackgroundImage);
-  const setFrequencyTone = useSettingsStore((state) => state.setFrequencyTone);
+  const exerciseAnimationColor = useSettingsStore((state) => state.exerciseAnimationColor);
+  const setExerciseAnimationColor = useSettingsStore((state) => state.setExerciseAnimationColor);
   const timeLimit = useSettingsStore((state) => state.timeLimit);
   const setTimeLimit = useSettingsStore((state) => state.setTimeLimit);
   const shouldFollowSystemDarkMode = useSettingsStore((state) => state.shouldFollowSystemDarkMode);
@@ -113,6 +169,8 @@ export const SettingsRootScreen: FC<
   const setTheme = useSettingsStore((state) => state.setTheme);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const setVibrationEnabled = useSettingsStore((state) => state.setVibrationEnabled);
+  const vibrationStrength = useSettingsStore((state) => state.vibrationStrength);
+  const setVibrationStrength = useSettingsStore((state) => state.setVibrationStrength);
   const scheduleRise = useSettingsStore((state) => state.scheduleRise);
   const setScheduleRise = useSettingsStore((state) => state.setScheduleRise);
   const scheduleReset = useSettingsStore((state) => state.scheduleReset);
@@ -131,14 +189,21 @@ export const SettingsRootScreen: FC<
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
+  const soundSliderStartRef = React.useRef(0);
   const handleSoundSliderStart = async () => {
-    const mode = frequencyTone === "disabled" ? "200hz" : frequencyTone;
-    await setupFrequencyTone(mode);
+    soundSliderStartRef.current = Date.now();
+    const cf = calmingFrequency === "disabled" ? "200hz" : calmingFrequency;
+    await setupFrequencyTone(cf, noiseBed);
     setToneVolumeMultiplier(defaultToneVolume);
-    await startFrequencyTone();
+    await startFrequencyTone({ quickFade: true });
   };
 
   const handleSoundSliderComplete = async () => {
+    const elapsed = Date.now() - soundSliderStartRef.current;
+    const minPreviewMs = 1200;
+    if (elapsed < minPreviewMs) {
+      await new Promise((r) => setTimeout(r, minPreviewMs - elapsed));
+    }
     await stopFrequencyTone();
     await releaseFrequencyTone();
   };
@@ -222,38 +287,23 @@ export const SettingsRootScreen: FC<
               onPress={() => navigation.navigate("SettingsScheduleRestore")}
             />
           </SettingsUI.Section>
-          <SettingsUI.Section label="Breathing pattern">
+          <SettingsUI.Section label="Quick Breath">
             <SettingsUI.LinkItem
-              label="Pattern"
-              iconName="body"
-              iconBackgroundColor="#bfdbfe"
-              value={(() => {
-                // Check if the name already contains intervals (like "Custom (4-2-4-2)")
-                const hasIntervalsInName = selectedPatternName.includes("(") && selectedPatternName.includes(")");
-                if (hasIntervalsInName) {
-                  return selectedPatternName;
-                }
-                return `${selectedPatternName} (${selectedPatternDurations
-                  .map((duration) => duration / ms("1 sec"))
-                  .join("-")})`;
-              })()}
-              onPress={() => navigation.navigate("SettingsPatternPicker")}
-            />
-          </SettingsUI.Section>
-          <SettingsUI.Section label="Default settings">
-            <SettingsUI.LinkItem
-              label="Default settings"
-              iconName="options"
+              label="Quick Breath"
+              iconName="heart"
               iconBackgroundColor="#94a3b8"
-              value="Sounds, Background, Haptics, Timer"
-              onPress={() => navigation.navigate("SettingsDefaultSettings")}
+              value="Patterns, Sounds, Appearance, Timer"
+              onPress={() => {
+                setQuickBreathSubmenu("main");
+                setShowQuickBreathSheet(true);
+              }}
             />
           </SettingsUI.Section>
           <SettingsUI.Section label="Appearance">
             <SettingsUI.SwitchItem
               label="Use system theme"
               secondaryLabel="Follow system light/dark mode"
-              iconName="moon"
+              iconName="sunny"
               iconBackgroundColor="#a5b4fc"
               value={shouldFollowSystemDarkMode}
               onValueChange={setShouldFollowSystemDarkMode}
@@ -294,6 +344,213 @@ export const SettingsRootScreen: FC<
             />
           </SettingsUI.Section>
         </ScrollView>
+
+        <Modal
+          visible={showQuickBreathSheet}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowQuickBreathSheet(false)}
+        >
+          <View style={{ flex: 1 }}>
+            <Pressable
+              style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+              onPress={() => {
+                setShowQuickBreathSheet(false);
+                setQuickBreathSubmenu("main");
+              }}
+            />
+            <View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: bgColor,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              maxHeight: Dimensions.get("window").height * 0.75,
+              paddingBottom: insets.bottom + 20,
+            }}
+          >
+            <View style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 4,
+                  backgroundColor: colorScheme === "dark" ? "#333" : "#ccc",
+                  borderRadius: 2,
+                }}
+              />
+            </View>
+            {quickBreathSubmenu !== "main" && (
+              <Pressable
+                onPress={() => setQuickBreathSubmenu("main")}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 8 }}
+              >
+                <Ionicons name="chevron-back" size={24} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} />
+                <Text style={{ color: colorScheme === "dark" ? "#007AFF" : colors["blue-500"], fontSize: 17, marginLeft: 4 }}>
+                  Back
+                </Text>
+              </Pressable>
+            )}
+            <ScrollView
+              style={{ maxHeight: 400 }}
+              contentContainerStyle={{ paddingHorizontal: Platform.OS === "android" ? undefined : 18 }}
+            >
+              {quickBreathSubmenu === "main" && (
+                <>
+                  <SettingsUI.Section label="Quick Breath">
+                    <SettingsUI.LinkItem
+                      label="Patterns"
+                      iconName="body"
+                      iconBackgroundColor="#bfdbfe"
+                      value={(() => {
+                        const hasIntervalsInName = selectedPatternName.includes("(") && selectedPatternName.includes(")");
+                        return hasIntervalsInName
+                          ? selectedPatternName
+                          : `${selectedPatternName} (${selectedPatternDurations.map((d) => d / ms("1 sec")).join("-")})`;
+                      })()}
+                      onPress={() => {
+                        setShowQuickBreathSheet(false);
+                        navigation.navigate("SettingsPatternPicker");
+                      }}
+                    />
+                    <SettingsUI.LinkItem
+                      label="Sounds & Haptics"
+                      iconName="volume-medium"
+                      iconBackgroundColor="#fdba74"
+                      value=""
+                      onPress={() => setQuickBreathSubmenu("sounds")}
+                    />
+                    <SettingsUI.LinkItem
+                      label="Appearance"
+                      iconName="color-palette"
+                      iconBackgroundColor="#a5b4fc"
+                      value=""
+                      onPress={() => setQuickBreathSubmenu("appearance")}
+                    />
+                  </SettingsUI.Section>
+                  <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
+                    <SettingsUI.StepperItem
+                      label="Exercise timer"
+                      secondaryLabel="Time limit in minutes"
+                      iconName="timer"
+                      iconBackgroundColor="#fb7185"
+                      value={timeLimit > 0 ? timeLimit / ms("1 min") : "∞"}
+                      fractionDigits={1}
+                      decreaseDisabled={timeLimit <= 0}
+                      increaseDisabled={timeLimit >= maxTimeLimit}
+                      onIncrease={() => setTimeLimit(Math.min(maxTimeLimit, timeLimit + ms("0.5 min")))}
+                      onDecrease={() => setTimeLimit(Math.max(0, timeLimit - ms("0.5 min")))}
+                    />
+                  </SettingsUI.Section>
+                </>
+              )}
+              {quickBreathSubmenu === "sounds" && (
+                <SettingsUI.Section label="Sounds & Haptics">
+                  <SettingsUI.PickerItem
+                    label="Guided breathing"
+                    iconName="volume-medium"
+                    iconBackgroundColor="#fdba74"
+                    value={guidedBreathingVoice}
+                    options={[
+                      { value: "female", label: "Female" },
+                      { value: "bell", label: "Bell" },
+                      { value: "disabled", label: "Disabled" },
+                    ] as { value: GuidedBreathingMode; label: string }[]}
+                    onValueChange={setGuidedBreathingVoice}
+                  />
+                  <SettingsUI.PickerItem
+                    label="Calming frequency"
+                    iconName="musical-notes"
+                    iconBackgroundColor="#60a5fa"
+                    value={calmingFrequency}
+                    options={[
+                      { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "136hz", label: <FrequencyNoiseOptionLabel text="136 Hz" categories={FREQUENCY_BEST_FOR["136hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "100hz", label: <FrequencyNoiseOptionLabel text="100 Hz" categories={FREQUENCY_BEST_FOR["100hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "disabled", label: "Disabled" },
+                    ]}
+                    onValueChange={setCalmingFrequency}
+                  />
+                  <SettingsUI.PickerItem
+                    label="Noise bed"
+                    iconName="musical-notes"
+                    iconBackgroundColor="#60a5fa"
+                    value={noiseBed}
+                    options={[
+                      { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "green", label: <FrequencyNoiseOptionLabel text="Green noise" categories={NOISE_BEST_FOR.green} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "pink", label: <FrequencyNoiseOptionLabel text="Pink noise" categories={NOISE_BEST_FOR.pink} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                      { value: "disabled", label: "Disabled" },
+                    ]}
+                    onValueChange={setNoiseBed}
+                  />
+                  <VolumeSliderRow
+                    label="Voice volume"
+                    value={defaultVoiceVolume}
+                    onValueChange={(v) => {
+                      setDefaultVoiceVolume(v);
+                      playVoiceVolumePreview(v);
+                    }}
+                    colorScheme={colorScheme}
+                  />
+                  <VolumeSliderRow
+                    label="Sound volume"
+                    value={defaultToneVolume}
+                    onValueChange={(v) => setToneVolumeMultiplier(v)}
+                    onSlidingStart={handleSoundSliderStart}
+                    onSlidingComplete={async (finalValue) => {
+                      setToneVolumeMultiplier(finalValue);
+                      setDefaultToneVolume(finalValue);
+                      await handleSoundSliderComplete();
+                    }}
+                    colorScheme={colorScheme}
+                    throttleMs={80}
+                  />
+                  <SettingsUI.SwitchItem
+                    label="Vibration"
+                    secondaryLabel="Vibrate for step indication"
+                    iconName="ellipse"
+                    iconBackgroundColor="aquamarine"
+                    value={vibrationEnabled}
+                    onValueChange={setVibrationEnabled}
+                  />
+                  <VolumeSliderRow
+                    label="Vibration strength"
+                    value={vibrationStrength}
+                    onValueChange={(v) => {
+                      setVibrationStrength(v);
+                      playVibrationStrengthPreview(v);
+                    }}
+                    onSlidingComplete={(finalValue) => { setVibrationStrength(finalValue); }}
+                    colorScheme={colorScheme}
+                    throttleMs={120}
+                  />
+                </SettingsUI.Section>
+              )}
+              {quickBreathSubmenu === "appearance" && (
+                <SettingsUI.Section label="Appearance">
+                  <ColorPicker
+                    selectedColor={exerciseAnimationColor}
+                    onColorChange={setExerciseAnimationColor}
+                    label="Breathing animation color"
+                    iconName="color-palette"
+                    iconBackgroundColor="#a5b4fc"
+                  />
+                  <BackgroundPicker
+                    backgroundColor={exerciseBackgroundColor}
+                    onBackgroundColorChange={setExerciseBackgroundColor}
+                    backgroundImage={exerciseBackgroundImage}
+                    onBackgroundImageChange={setExerciseBackgroundImage}
+                  />
+                </SettingsUI.Section>
+              )}
+            </ScrollView>
+          </View>
+          </View>
+        </Modal>
     </View>
   );
 };
@@ -311,25 +568,36 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
   const setDefaultVoiceVolume = useSettingsStore((state) => state.setDefaultVoiceVolume);
   const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
   const setDefaultToneVolume = useSettingsStore((state) => state.setDefaultToneVolume);
-  const frequencyTone = useSettingsStore((state) => state.frequencyTone);
-  const setFrequencyTone = useSettingsStore((state) => state.setFrequencyTone);
+  const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const setCalmingFrequency = useSettingsStore((state) => state.setCalmingFrequency);
+  const noiseBed = useSettingsStore((state) => state.noiseBed);
+  const setNoiseBed = useSettingsStore((state) => state.setNoiseBed);
   const exerciseBackgroundColor = useSettingsStore((state) => state.exerciseBackgroundColor);
   const setExerciseBackgroundColor = useSettingsStore((state) => state.setExerciseBackgroundColor);
   const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
   const setExerciseBackgroundImage = useSettingsStore((state) => state.setExerciseBackgroundImage);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const setVibrationEnabled = useSettingsStore((state) => state.setVibrationEnabled);
+  const vibrationStrength = useSettingsStore((state) => state.vibrationStrength);
+  const setVibrationStrength = useSettingsStore((state) => state.setVibrationStrength);
   const timeLimit = useSettingsStore((state) => state.timeLimit);
   const setTimeLimit = useSettingsStore((state) => state.setTimeLimit);
 
+  const soundSliderStartRef = React.useRef(0);
   const handleSoundSliderStart = async () => {
-    const mode = frequencyTone === "disabled" ? "200hz" : frequencyTone;
-    await setupFrequencyTone(mode);
+    soundSliderStartRef.current = Date.now();
+    const cf = calmingFrequency === "disabled" ? "200hz" : calmingFrequency;
+    await setupFrequencyTone(cf, noiseBed);
     setToneVolumeMultiplier(defaultToneVolume);
-    await startFrequencyTone();
+    await startFrequencyTone({ quickFade: true });
   };
 
   const handleSoundSliderComplete = async () => {
+    const elapsed = Date.now() - soundSliderStartRef.current;
+    const minPreviewMs = 1200;
+    if (elapsed < minPreviewMs) {
+      await new Promise((r) => setTimeout(r, minPreviewMs - elapsed));
+    }
     await stopFrequencyTone();
     await releaseFrequencyTone();
   };
@@ -368,17 +636,27 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
             label="Calming frequency"
             iconName="musical-notes"
             iconBackgroundColor="#60a5fa"
-            value={frequencyTone}
+            value={calmingFrequency}
             options={[
-              { value: "200hz", label: "200 Hz" },
-              { value: "136hz", label: "136 Hz" },
-              { value: "100hz", label: "100 Hz" },
-              { value: "brown", label: "Brown noise" },
-              { value: "green", label: "Green noise" },
-              { value: "pink", label: "Pink noise" },
+              { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+              { value: "136hz", label: <FrequencyNoiseOptionLabel text="136 Hz" categories={FREQUENCY_BEST_FOR["136hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+              { value: "100hz", label: <FrequencyNoiseOptionLabel text="100 Hz" categories={FREQUENCY_BEST_FOR["100hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
               { value: "disabled", label: "Disabled" },
-            ] as { value: FrequencyToneMode; label: string }[]}
-            onValueChange={setFrequencyTone}
+            ]}
+            onValueChange={setCalmingFrequency}
+          />
+          <SettingsUI.PickerItem
+            label="Noise bed"
+            iconName="musical-notes"
+            iconBackgroundColor="#60a5fa"
+            value={noiseBed}
+            options={[
+              { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+              { value: "green", label: <FrequencyNoiseOptionLabel text="Green noise" categories={NOISE_BEST_FOR.green} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+              { value: "pink", label: <FrequencyNoiseOptionLabel text="Pink noise" categories={NOISE_BEST_FOR.pink} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+              { value: "disabled", label: "Disabled" },
+            ]}
+            onValueChange={setNoiseBed}
           />
           <VolumeSliderRow
             label="Voice volume"
@@ -392,13 +670,15 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
           <VolumeSliderRow
             label="Sound volume"
             value={defaultToneVolume}
-            onValueChange={(v) => {
-              setDefaultToneVolume(v);
-              setToneVolumeMultiplier(v);
-            }}
+            onValueChange={(v) => setToneVolumeMultiplier(v)}
             onSlidingStart={handleSoundSliderStart}
-            onSlidingComplete={handleSoundSliderComplete}
+            onSlidingComplete={async (finalValue) => {
+              setToneVolumeMultiplier(finalValue);
+              setDefaultToneVolume(finalValue);
+              await handleSoundSliderComplete();
+            }}
             colorScheme={colorScheme}
+            throttleMs={80}
           />
         </SettingsUI.Section>
         <SettingsUI.Section label="Exercise Background">
@@ -417,6 +697,17 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
             iconBackgroundColor="aquamarine"
             value={vibrationEnabled}
             onValueChange={setVibrationEnabled}
+          />
+          <VolumeSliderRow
+            label="Vibration strength"
+            value={vibrationStrength}
+            onValueChange={(v) => {
+              setVibrationStrength(v);
+              playVibrationStrengthPreview(v);
+            }}
+            onSlidingComplete={(finalValue) => { setVibrationStrength(finalValue); }}
+            colorScheme={colorScheme}
+            throttleMs={120}
           />
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
@@ -675,8 +966,11 @@ type ScheduleScreenProps = NativeStackScreenProps<
   "SettingsScheduleRise" | "SettingsScheduleReset" | "SettingsScheduleRestore"
 >;
 
+type ScheduleSubmenu = "main" | "patterns" | "sounds" | "appearance";
+
 export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
+  const [submenu, setSubmenu] = useState<ScheduleSubmenu>("main");
   const customPatterns = useSettingsStore((state) => state.customPatterns);
   const scheduleRise = useSettingsStore((state) => state.scheduleRise);
   const setScheduleRise = useSettingsStore((state) => state.setScheduleRise);
@@ -689,8 +983,11 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const scheduleRestoreStartTime = useSettingsStore((state) => state.scheduleRestoreStartTime);
   const scheduleRestoreEndTime = useSettingsStore((state) => state.scheduleRestoreEndTime);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const vibrationStrength = useSettingsStore((state) => state.vibrationStrength);
   const scheduleRiseVibrationEnabled = useSettingsStore((state) => state.scheduleRiseVibrationEnabled);
   const setScheduleRiseVibrationEnabled = useSettingsStore((state) => state.setScheduleRiseVibrationEnabled);
+  const scheduleRiseVibrationStrength = useSettingsStore((state) => state.scheduleRiseVibrationStrength);
+  const setScheduleRiseVibrationStrength = useSettingsStore((state) => state.setScheduleRiseVibrationStrength);
   const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
   const scheduleRiseGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRiseGuidedBreathingVoice);
   const setScheduleRiseGuidedBreathingVoice = useSettingsStore((state) => state.setScheduleRiseGuidedBreathingVoice);
@@ -705,8 +1002,35 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const setScheduleRiseBackgroundColor = useSettingsStore((state) => state.setScheduleRiseBackgroundColor);
   const scheduleRiseBackgroundImage = useSettingsStore((state) => state.scheduleRiseBackgroundImage);
   const setScheduleRiseBackgroundImage = useSettingsStore((state) => state.setScheduleRiseBackgroundImage);
+  const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const noiseBed = useSettingsStore((state) => state.noiseBed);
+  const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
+  const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
+  const scheduleRiseCalmingFrequency = useSettingsStore((state) => state.scheduleRiseCalmingFrequency);
+  const setScheduleRiseCalmingFrequency = useSettingsStore((state) => state.setScheduleRiseCalmingFrequency);
+  const scheduleRiseNoiseBed = useSettingsStore((state) => state.scheduleRiseNoiseBed);
+  const setScheduleRiseNoiseBed = useSettingsStore((state) => state.setScheduleRiseNoiseBed);
+  const scheduleRiseVoiceVolume = useSettingsStore((state) => state.scheduleRiseVoiceVolume);
+  const setScheduleRiseVoiceVolume = useSettingsStore((state) => state.setScheduleRiseVoiceVolume);
+  const scheduleRiseToneVolume = useSettingsStore((state) => state.scheduleRiseToneVolume);
+  const setScheduleRiseToneVolume = useSettingsStore((state) => state.setScheduleRiseToneVolume);
 
   const allPatterns = [...patternPresets, ...customPatterns];
+
+  const riseSoundSliderStartRef = React.useRef(0);
+  const handleRiseSoundSliderStart = async () => {
+    riseSoundSliderStartRef.current = Date.now();
+    const cf = (scheduleRiseCalmingFrequency ?? calmingFrequency) === "disabled" ? "200hz" : (scheduleRiseCalmingFrequency ?? calmingFrequency);
+    await setupFrequencyTone(cf, scheduleRiseNoiseBed ?? noiseBed);
+    setToneVolumeMultiplier(scheduleRiseToneVolume ?? defaultToneVolume);
+    await startFrequencyTone({ quickFade: true });
+  };
+  const handleRiseSoundSliderComplete = async () => {
+    const elapsed = Date.now() - riseSoundSliderStartRef.current;
+    if (elapsed < 1200) await new Promise((r) => setTimeout(r, 1200 - elapsed));
+    await stopFrequencyTone();
+    await releaseFrequencyTone();
+  };
 
   const handleStartTimeChange = (newTime: string) => {
     const validation = validateScheduleTimeRange(
@@ -760,6 +1084,17 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
         backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],
       }}
     >
+      {submenu !== "main" && (
+        <Pressable
+          onPress={() => setSubmenu("main")}
+          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 12 }}
+        >
+          <Ionicons name="chevron-back" size={24} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} />
+          <Text style={{ color: colorScheme === "dark" ? "#007AFF" : colors["blue-500"], fontSize: 17, marginLeft: 4 }}>
+            Back
+          </Text>
+        </Pressable>
+      )}
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="automatic"
@@ -768,151 +1103,255 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
           paddingBottom: 20,
         }}
       >
-        <SettingsUI.Section label="Time Range">
-          <SettingsUI.PickerItem
-            label="Start Time"
-            iconName="time-outline"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseStartTime || ""}
-            options={[{ value: "", label: "Not set" }, ...timeOptions]}
-            onValueChange={handleStartTimeChange}
-          />
-          <SettingsUI.PickerItem
-            label="End Time"
-            iconName="time-outline"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseEndTime || ""}
-            options={[{ value: "", label: "Not set" }, ...timeOptions]}
-            onValueChange={handleEndTimeChange}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Breathing Patterns">
-          <SettingsUI.MultiSelectItem
-            label="Select Patterns"
-            iconName="list"
-            iconBackgroundColor="#fbbf24"
-            selectedValues={scheduleRise}
-            emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.rise[0])?.name ?? "Awake"}`}
-            options={allPatterns.map((preset) => {
-              const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
-              const displayLabel = hasIntervalsInName
-                ? preset.name
-                : `${preset.name} (${preset.steps
-                    .map((duration) => duration / ms("1 sec"))
-                    .join("-")})`;
-              const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
-              return {
-                value: preset.id,
-                label: isBuiltIn ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={{
-                        color: colorScheme === "dark" ? "#ffffff" : undefined,
-                        flexShrink: 0,
-                        marginRight: 6,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {displayLabel}
-                    </Text>
-                    <ScheduleDots patternId={preset.id} />
-                  </View>
-                ) : (
-                  displayLabel
-                ),
-              };
-            })}
-            onValueChange={setScheduleRise}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Sounds">
-          <SettingsUI.PickerItem
-            label="Guided breathing"
-            secondaryLabel="Override main guided breathing setting"
-            iconName="volume-medium"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseGuidedBreathingVoice ?? guidedBreathingVoice}
-            options={
-              [
-                { value: "female", label: "Female" },
-                { value: "bell", label: "Bell" },
-                { value: "disabled", label: "Disabled" },
-              ] as { value: GuidedBreathingMode; label: string }[]
-            }
-            onValueChange={(value) => {
-              const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
-              setScheduleRiseGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
-            }}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Appearance">
-          <ColorPicker
-            selectedColor={scheduleRiseColor}
-            onColorChange={setScheduleRiseColor}
-            label="Breathing animation color"
-            iconName="color-palette"
-            iconBackgroundColor="#fbbf24"
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Background">
-          <SettingsUI.SwitchItem
-            label="Override main background"
-            secondaryLabel="Use a different background during Rise time window"
-            iconName="color-palette"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseBackgroundColor !== null}
-            onValueChange={(value) => {
-              if (value) {
-                setScheduleRiseBackgroundColor(exerciseBackgroundColor);
-                setScheduleRiseBackgroundImage(exerciseBackgroundImage);
-              } else {
-                setScheduleRiseBackgroundColor(null);
-                setScheduleRiseBackgroundImage(null);
-              }
-            }}
-          />
-          {scheduleRiseBackgroundColor !== null && (
-            <BackgroundPicker
-              backgroundColor={scheduleRiseBackgroundColor}
-              onBackgroundColorChange={setScheduleRiseBackgroundColor}
-              backgroundImage={scheduleRiseBackgroundImage}
-              onBackgroundImageChange={setScheduleRiseBackgroundImage}
+        {submenu === "main" && (
+          <>
+            <SettingsUI.Section label="Time Range">
+              <SettingsUI.PickerItem
+                label="Start Time"
+                iconName="time-outline"
+                iconBackgroundColor="#fbbf24"
+                value={scheduleRiseStartTime || ""}
+                options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                onValueChange={handleStartTimeChange}
+              />
+              <SettingsUI.PickerItem
+                label="End Time"
+                iconName="time-outline"
+                iconBackgroundColor="#fbbf24"
+                value={scheduleRiseEndTime || ""}
+                options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                onValueChange={handleEndTimeChange}
+              />
+            </SettingsUI.Section>
+            <SettingsUI.Section label="Rise">
+              <SettingsUI.LinkItem
+                label="Patterns"
+                iconName="body"
+                iconBackgroundColor="#fbbf24"
+                value={
+                  scheduleRise.length > 0
+                    ? `${scheduleRise.length} selected`
+                    : `Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.rise[0])?.name ?? "Awake"}`
+                }
+                onPress={() => setSubmenu("patterns")}
+              />
+              <SettingsUI.LinkItem
+                label="Sounds & Haptics"
+                iconName="volume-medium"
+                iconBackgroundColor="#fbbf24"
+                value=""
+                onPress={() => setSubmenu("sounds")}
+              />
+              <SettingsUI.LinkItem
+                label="Appearance"
+                iconName="color-palette"
+                iconBackgroundColor="#fbbf24"
+                value=""
+                onPress={() => setSubmenu("appearance")}
+              />
+            </SettingsUI.Section>
+            <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
+              <SettingsUI.StepperItem
+                label="Exercise timer"
+                secondaryLabel="Time limit in minutes"
+                iconName="timer"
+                iconBackgroundColor="#fbbf24"
+                value={scheduleRiseTimeLimit / ms("1 min")}
+                fractionDigits={1}
+                decreaseDisabled={scheduleRiseTimeLimit <= 0}
+                increaseDisabled={scheduleRiseTimeLimit >= maxTimeLimit}
+                onDecrease={() => {
+                  const newLimit = Math.max(0, scheduleRiseTimeLimit - ms("0.5 min"));
+                  setScheduleRiseTimeLimit(newLimit);
+                }}
+                onIncrease={() => {
+                  const newLimit = Math.min(maxTimeLimit, scheduleRiseTimeLimit + ms("0.5 min"));
+                  setScheduleRiseTimeLimit(newLimit);
+                }}
+              />
+            </SettingsUI.Section>
+          </>
+        )}
+        {submenu === "patterns" && (
+          <SettingsUI.Section label="Patterns">
+            <SettingsUI.MultiSelectItem
+              label="Select Patterns"
+              iconName="body"
+              iconBackgroundColor="#fbbf24"
+              selectedValues={scheduleRise}
+              emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.rise[0])?.name ?? "Awake"}`}
+              options={allPatterns.map((preset) => {
+                const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
+                const displayLabel = hasIntervalsInName
+                  ? preset.name
+                  : `${preset.name} (${preset.steps
+                      .map((duration) => duration / ms("1 sec"))
+                      .join("-")})`;
+                const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
+                return {
+                  value: preset.id,
+                  label: isBuiltIn ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          color: colorScheme === "dark" ? "#ffffff" : undefined,
+                          flexShrink: 0,
+                          marginRight: 6,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {displayLabel}
+                      </Text>
+                      <ScheduleDots patternId={preset.id} />
+                    </View>
+                  ) : (
+                    displayLabel
+                  ),
+                };
+              })}
+              onValueChange={setScheduleRise}
             />
-          )}
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Timer">
-          <SettingsUI.StepperItem
-            label="Exercise timer"
-            secondaryLabel="Time limit in minutes"
-            iconName="timer"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseTimeLimit / ms("1 min")}
-            fractionDigits={1}
-            decreaseDisabled={scheduleRiseTimeLimit <= 0}
-            increaseDisabled={scheduleRiseTimeLimit >= maxTimeLimit}
-            onDecrease={() => {
-              const newLimit = Math.max(0, scheduleRiseTimeLimit - ms("0.5 min"));
-              setScheduleRiseTimeLimit(newLimit);
-            }}
-            onIncrease={() => {
-              const newLimit = Math.min(maxTimeLimit, scheduleRiseTimeLimit + ms("0.5 min"));
-              setScheduleRiseTimeLimit(newLimit);
-            }}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Haptics" hideBottomBorderAndroid>
-          <SettingsUI.SwitchItem
-            label="Vibration"
-            secondaryLabel="Override main vibration setting"
-            iconName="ellipse"
-            iconBackgroundColor="#fbbf24"
-            value={scheduleRiseVibrationEnabled ?? vibrationEnabled}
-            onValueChange={(value) => {
-              const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
-              setScheduleRiseVibrationEnabled(value === mainVibrationEnabled ? null : value);
-            }}
-          />
-        </SettingsUI.Section>
+          </SettingsUI.Section>
+        )}
+        {submenu === "sounds" && (
+          <SettingsUI.Section label="Sounds & Haptics">
+            <SettingsUI.PickerItem
+              label="Guided breathing"
+              secondaryLabel="Override main guided breathing setting"
+              iconName="volume-medium"
+              iconBackgroundColor="#fbbf24"
+              value={scheduleRiseGuidedBreathingVoice ?? guidedBreathingVoice}
+              options={
+                [
+                  { value: "female", label: "Female" },
+                  { value: "bell", label: "Bell" },
+                  { value: "disabled", label: "Disabled" },
+                ] as { value: GuidedBreathingMode; label: string }[]
+              }
+              onValueChange={(value) => {
+                const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
+                setScheduleRiseGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
+              }}
+            />
+            <SettingsUI.PickerItem
+              label="Calming frequency"
+              secondaryLabel="Override main calming frequency setting"
+              iconName="musical-notes"
+              iconBackgroundColor="#fbbf24"
+              value={scheduleRiseCalmingFrequency ?? calmingFrequency}
+              options={[
+                { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "136hz", label: <FrequencyNoiseOptionLabel text="136 Hz" categories={FREQUENCY_BEST_FOR["136hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "100hz", label: <FrequencyNoiseOptionLabel text="100 Hz" categories={FREQUENCY_BEST_FOR["100hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "disabled", label: "Disabled" },
+              ]}
+              onValueChange={(value) => {
+                const main = useSettingsStore.getState().calmingFrequency;
+                setScheduleRiseCalmingFrequency(value === main ? null : value);
+              }}
+            />
+            <SettingsUI.PickerItem
+              label="Noise bed"
+              secondaryLabel="Override main noise bed setting"
+              iconName="musical-notes"
+              iconBackgroundColor="#fbbf24"
+              value={scheduleRiseNoiseBed ?? noiseBed}
+              options={[
+                { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "green", label: <FrequencyNoiseOptionLabel text="Green noise" categories={NOISE_BEST_FOR.green} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "pink", label: <FrequencyNoiseOptionLabel text="Pink noise" categories={NOISE_BEST_FOR.pink} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "disabled", label: "Disabled" },
+              ]}
+              onValueChange={(value) => {
+                const main = useSettingsStore.getState().noiseBed;
+                setScheduleRiseNoiseBed(value === main ? null : value);
+              }}
+            />
+            <VolumeSliderRow
+              label="Voice volume"
+              value={scheduleRiseVoiceVolume ?? defaultVoiceVolume}
+              onValueChange={(v) => {
+                setScheduleRiseVoiceVolume(v);
+                playVoiceVolumePreview(v);
+              }}
+              colorScheme={colorScheme}
+            />
+            <VolumeSliderRow
+              label="Sound volume"
+              value={scheduleRiseToneVolume ?? defaultToneVolume}
+              onValueChange={(v) => setToneVolumeMultiplier(v)}
+              onSlidingStart={handleRiseSoundSliderStart}
+              onSlidingComplete={async (finalValue) => {
+                setToneVolumeMultiplier(finalValue);
+                setScheduleRiseToneVolume(finalValue);
+                await handleRiseSoundSliderComplete();
+              }}
+              colorScheme={colorScheme}
+              throttleMs={80}
+            />
+            <SettingsUI.SwitchItem
+              label="Vibration"
+              secondaryLabel="Override main vibration setting"
+              iconName="ellipse"
+              iconBackgroundColor="#fbbf24"
+              value={scheduleRiseVibrationEnabled ?? vibrationEnabled}
+              onValueChange={(value) => {
+                const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
+                setScheduleRiseVibrationEnabled(value === mainVibrationEnabled ? null : value);
+              }}
+            />
+            <VolumeSliderRow
+              label="Vibration strength"
+              value={scheduleRiseVibrationStrength ?? vibrationStrength}
+              onValueChange={(v) => {
+                const main = useSettingsStore.getState().vibrationStrength;
+                setScheduleRiseVibrationStrength(v === main ? null : v);
+                playVibrationStrengthPreview(v);
+              }}
+              onSlidingComplete={(finalValue) => {
+                const main = useSettingsStore.getState().vibrationStrength;
+                setScheduleRiseVibrationStrength(finalValue === main ? null : finalValue);
+              }}
+              colorScheme={colorScheme}
+              throttleMs={120}
+            />
+          </SettingsUI.Section>
+        )}
+        {submenu === "appearance" && (
+          <SettingsUI.Section label="Appearance">
+            <ColorPicker
+              selectedColor={scheduleRiseColor}
+              onColorChange={setScheduleRiseColor}
+              label="Breathing animation color"
+              iconName="color-palette"
+              iconBackgroundColor="#fbbf24"
+            />
+            <SettingsUI.SwitchItem
+              label="Override main background"
+              secondaryLabel="Use a different background during Rise time window"
+              iconName="color-palette"
+              iconBackgroundColor="#fbbf24"
+              value={scheduleRiseBackgroundColor !== null}
+              onValueChange={(value) => {
+                if (value) {
+                  setScheduleRiseBackgroundColor(exerciseBackgroundColor);
+                  setScheduleRiseBackgroundImage(exerciseBackgroundImage);
+                } else {
+                  setScheduleRiseBackgroundColor(null);
+                  setScheduleRiseBackgroundImage(null);
+                }
+              }}
+            />
+            {scheduleRiseBackgroundColor !== null && (
+              <BackgroundPicker
+                backgroundColor={scheduleRiseBackgroundColor}
+                onBackgroundColorChange={setScheduleRiseBackgroundColor}
+                backgroundImage={scheduleRiseBackgroundImage}
+                onBackgroundImageChange={setScheduleRiseBackgroundImage}
+              />
+            )}
+          </SettingsUI.Section>
+        )}
       </ScrollView>
     </View>
   );
@@ -920,6 +1359,7 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
 
 export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
+  const [submenu, setSubmenu] = useState<ScheduleSubmenu>("main");
   const customPatterns = useSettingsStore((state) => state.customPatterns);
   const scheduleReset = useSettingsStore((state) => state.scheduleReset);
   const setScheduleReset = useSettingsStore((state) => state.setScheduleReset);
@@ -932,8 +1372,11 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const scheduleRestoreStartTime = useSettingsStore((state) => state.scheduleRestoreStartTime);
   const scheduleRestoreEndTime = useSettingsStore((state) => state.scheduleRestoreEndTime);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const vibrationStrength = useSettingsStore((state) => state.vibrationStrength);
   const scheduleResetVibrationEnabled = useSettingsStore((state) => state.scheduleResetVibrationEnabled);
   const setScheduleResetVibrationEnabled = useSettingsStore((state) => state.setScheduleResetVibrationEnabled);
+  const scheduleResetVibrationStrength = useSettingsStore((state) => state.scheduleResetVibrationStrength);
+  const setScheduleResetVibrationStrength = useSettingsStore((state) => state.setScheduleResetVibrationStrength);
   const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
   const scheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.scheduleResetGuidedBreathingVoice);
   const setScheduleResetGuidedBreathingVoice = useSettingsStore((state) => state.setScheduleResetGuidedBreathingVoice);
@@ -948,8 +1391,35 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const setScheduleResetBackgroundColor = useSettingsStore((state) => state.setScheduleResetBackgroundColor);
   const scheduleResetBackgroundImage = useSettingsStore((state) => state.scheduleResetBackgroundImage);
   const setScheduleResetBackgroundImage = useSettingsStore((state) => state.setScheduleResetBackgroundImage);
+  const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const noiseBed = useSettingsStore((state) => state.noiseBed);
+  const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
+  const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
+  const scheduleResetCalmingFrequency = useSettingsStore((state) => state.scheduleResetCalmingFrequency);
+  const setScheduleResetCalmingFrequency = useSettingsStore((state) => state.setScheduleResetCalmingFrequency);
+  const scheduleResetNoiseBed = useSettingsStore((state) => state.scheduleResetNoiseBed);
+  const setScheduleResetNoiseBed = useSettingsStore((state) => state.setScheduleResetNoiseBed);
+  const scheduleResetVoiceVolume = useSettingsStore((state) => state.scheduleResetVoiceVolume);
+  const setScheduleResetVoiceVolume = useSettingsStore((state) => state.setScheduleResetVoiceVolume);
+  const scheduleResetToneVolume = useSettingsStore((state) => state.scheduleResetToneVolume);
+  const setScheduleResetToneVolume = useSettingsStore((state) => state.setScheduleResetToneVolume);
 
   const allPatterns = [...patternPresets, ...customPatterns];
+
+  const resetSoundSliderStartRef = React.useRef(0);
+  const handleResetSoundSliderStart = async () => {
+    resetSoundSliderStartRef.current = Date.now();
+    const cf = (scheduleResetCalmingFrequency ?? calmingFrequency) === "disabled" ? "200hz" : (scheduleResetCalmingFrequency ?? calmingFrequency);
+    await setupFrequencyTone(cf, scheduleResetNoiseBed ?? noiseBed);
+    setToneVolumeMultiplier(scheduleResetToneVolume ?? defaultToneVolume);
+    await startFrequencyTone({ quickFade: true });
+  };
+  const handleResetSoundSliderComplete = async () => {
+    const elapsed = Date.now() - resetSoundSliderStartRef.current;
+    if (elapsed < 1200) await new Promise((r) => setTimeout(r, 1200 - elapsed));
+    await stopFrequencyTone();
+    await releaseFrequencyTone();
+  };
 
   const handleStartTimeChange = (newTime: string) => {
     const validation = validateScheduleTimeRange(
@@ -1003,6 +1473,17 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
         backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],
       }}
     >
+      {submenu !== "main" && (
+        <Pressable
+          onPress={() => setSubmenu("main")}
+          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 12 }}
+        >
+          <Ionicons name="chevron-back" size={24} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} />
+          <Text style={{ color: colorScheme === "dark" ? "#007AFF" : colors["blue-500"], fontSize: 17, marginLeft: 4 }}>
+            Back
+          </Text>
+        </Pressable>
+      )}
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="automatic"
@@ -1011,151 +1492,255 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
           paddingBottom: 20,
         }}
       >
-        <SettingsUI.Section label="Time Range">
-          <SettingsUI.PickerItem
-            label="Start Time"
-            iconName="time-outline"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetStartTime || ""}
-            options={[{ value: "", label: "Not set" }, ...timeOptions]}
-            onValueChange={handleStartTimeChange}
-          />
-          <SettingsUI.PickerItem
-            label="End Time"
-            iconName="time-outline"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetEndTime || ""}
-            options={[{ value: "", label: "Not set" }, ...timeOptions]}
-            onValueChange={handleEndTimeChange}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Breathing Patterns">
-          <SettingsUI.MultiSelectItem
-            label="Select Patterns"
-            iconName="list"
-            iconBackgroundColor="#60a5fa"
-            selectedValues={scheduleReset}
-            emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.reset[0])?.name ?? "Performance"}`}
-            options={allPatterns.map((preset) => {
-              const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
-              const displayLabel = hasIntervalsInName
-                ? preset.name
-                : `${preset.name} (${preset.steps
-                    .map((duration) => duration / ms("1 sec"))
-                    .join("-")})`;
-              const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
-              return {
-                value: preset.id,
-                label: isBuiltIn ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={{
-                        color: colorScheme === "dark" ? "#ffffff" : undefined,
-                        flexShrink: 0,
-                        marginRight: 6,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {displayLabel}
-                    </Text>
-                    <ScheduleDots patternId={preset.id} />
-                  </View>
-                ) : (
-                  displayLabel
-                ),
-              };
-            })}
-            onValueChange={setScheduleReset}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Sounds">
-          <SettingsUI.PickerItem
-            label="Guided breathing"
-            secondaryLabel="Override main guided breathing setting"
-            iconName="volume-medium"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice}
-            options={
-              [
-                { value: "female", label: "Female" },
-                { value: "bell", label: "Bell" },
-                { value: "disabled", label: "Disabled" },
-              ] as { value: GuidedBreathingMode; label: string }[]
-            }
-            onValueChange={(value) => {
-              const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
-              setScheduleResetGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
-            }}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Appearance">
-          <ColorPicker
-            selectedColor={scheduleResetColor}
-            onColorChange={setScheduleResetColor}
-            label="Breathing animation color"
-            iconName="color-palette"
-            iconBackgroundColor="#60a5fa"
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Background">
-          <SettingsUI.SwitchItem
-            label="Override main background"
-            secondaryLabel="Use a different background during Reset time window"
-            iconName="color-palette"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetBackgroundColor !== null}
-            onValueChange={(value) => {
-              if (value) {
-                setScheduleResetBackgroundColor(exerciseBackgroundColor);
-                setScheduleResetBackgroundImage(exerciseBackgroundImage);
-              } else {
-                setScheduleResetBackgroundColor(null);
-                setScheduleResetBackgroundImage(null);
-              }
-            }}
-          />
-          {scheduleResetBackgroundColor !== null && (
-            <BackgroundPicker
-              backgroundColor={scheduleResetBackgroundColor}
-              onBackgroundColorChange={setScheduleResetBackgroundColor}
-              backgroundImage={scheduleResetBackgroundImage}
-              onBackgroundImageChange={setScheduleResetBackgroundImage}
+        {submenu === "main" && (
+          <>
+            <SettingsUI.Section label="Time Range">
+              <SettingsUI.PickerItem
+                label="Start Time"
+                iconName="time-outline"
+                iconBackgroundColor="#60a5fa"
+                value={scheduleResetStartTime || ""}
+                options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                onValueChange={handleStartTimeChange}
+              />
+              <SettingsUI.PickerItem
+                label="End Time"
+                iconName="time-outline"
+                iconBackgroundColor="#60a5fa"
+                value={scheduleResetEndTime || ""}
+                options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                onValueChange={handleEndTimeChange}
+              />
+            </SettingsUI.Section>
+            <SettingsUI.Section label="Reset">
+              <SettingsUI.LinkItem
+                label="Patterns"
+                iconName="body"
+                iconBackgroundColor="#60a5fa"
+                value={
+                  scheduleReset.length > 0
+                    ? `${scheduleReset.length} selected`
+                    : `Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.reset[0])?.name ?? "Performance"}`
+                }
+                onPress={() => setSubmenu("patterns")}
+              />
+              <SettingsUI.LinkItem
+                label="Sounds & Haptics"
+                iconName="volume-medium"
+                iconBackgroundColor="#60a5fa"
+                value=""
+                onPress={() => setSubmenu("sounds")}
+              />
+              <SettingsUI.LinkItem
+                label="Appearance"
+                iconName="color-palette"
+                iconBackgroundColor="#60a5fa"
+                value=""
+                onPress={() => setSubmenu("appearance")}
+              />
+            </SettingsUI.Section>
+            <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
+              <SettingsUI.StepperItem
+                label="Exercise timer"
+                secondaryLabel="Time limit in minutes"
+                iconName="timer"
+                iconBackgroundColor="#60a5fa"
+                value={scheduleResetTimeLimit / ms("1 min")}
+                fractionDigits={1}
+                decreaseDisabled={scheduleResetTimeLimit <= 0}
+                increaseDisabled={scheduleResetTimeLimit >= maxTimeLimit}
+                onDecrease={() => {
+                  const newLimit = Math.max(0, scheduleResetTimeLimit - ms("0.5 min"));
+                  setScheduleResetTimeLimit(newLimit);
+                }}
+                onIncrease={() => {
+                  const newLimit = Math.min(maxTimeLimit, scheduleResetTimeLimit + ms("0.5 min"));
+                  setScheduleResetTimeLimit(newLimit);
+                }}
+              />
+            </SettingsUI.Section>
+          </>
+        )}
+        {submenu === "patterns" && (
+          <SettingsUI.Section label="Patterns">
+            <SettingsUI.MultiSelectItem
+              label="Select Patterns"
+              iconName="body"
+              iconBackgroundColor="#60a5fa"
+              selectedValues={scheduleReset}
+              emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.reset[0])?.name ?? "Performance"}`}
+              options={allPatterns.map((preset) => {
+                const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
+                const displayLabel = hasIntervalsInName
+                  ? preset.name
+                  : `${preset.name} (${preset.steps
+                      .map((duration) => duration / ms("1 sec"))
+                      .join("-")})`;
+                const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
+                return {
+                  value: preset.id,
+                  label: isBuiltIn ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          color: colorScheme === "dark" ? "#ffffff" : undefined,
+                          flexShrink: 0,
+                          marginRight: 6,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {displayLabel}
+                      </Text>
+                      <ScheduleDots patternId={preset.id} />
+                    </View>
+                  ) : (
+                    displayLabel
+                  ),
+                };
+              })}
+              onValueChange={setScheduleReset}
             />
-          )}
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Timer">
-          <SettingsUI.StepperItem
-            label="Exercise timer"
-            secondaryLabel="Time limit in minutes"
-            iconName="timer"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetTimeLimit / ms("1 min")}
-            fractionDigits={1}
-            decreaseDisabled={scheduleResetTimeLimit <= 0}
-            increaseDisabled={scheduleResetTimeLimit >= maxTimeLimit}
-            onDecrease={() => {
-              const newLimit = Math.max(0, scheduleResetTimeLimit - ms("0.5 min"));
-              setScheduleResetTimeLimit(newLimit);
-            }}
-            onIncrease={() => {
-              const newLimit = Math.min(maxTimeLimit, scheduleResetTimeLimit + ms("0.5 min"));
-              setScheduleResetTimeLimit(newLimit);
-            }}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Haptics" hideBottomBorderAndroid>
-          <SettingsUI.SwitchItem
-            label="Vibration"
-            secondaryLabel="Override main vibration setting"
-            iconName="ellipse"
-            iconBackgroundColor="#60a5fa"
-            value={scheduleResetVibrationEnabled ?? vibrationEnabled}
-            onValueChange={(value) => {
-              const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
-              setScheduleResetVibrationEnabled(value === mainVibrationEnabled ? null : value);
-            }}
-          />
-        </SettingsUI.Section>
+          </SettingsUI.Section>
+        )}
+        {submenu === "sounds" && (
+          <SettingsUI.Section label="Sounds & Haptics">
+            <SettingsUI.PickerItem
+              label="Guided breathing"
+              secondaryLabel="Override main guided breathing setting"
+              iconName="volume-medium"
+              iconBackgroundColor="#60a5fa"
+              value={scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice}
+              options={
+                [
+                  { value: "female", label: "Female" },
+                  { value: "bell", label: "Bell" },
+                  { value: "disabled", label: "Disabled" },
+                ] as { value: GuidedBreathingMode; label: string }[]
+              }
+              onValueChange={(value) => {
+                const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
+                setScheduleResetGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
+              }}
+            />
+            <SettingsUI.PickerItem
+              label="Calming frequency"
+              secondaryLabel="Override main calming frequency setting"
+              iconName="musical-notes"
+              iconBackgroundColor="#60a5fa"
+              value={scheduleResetCalmingFrequency ?? calmingFrequency}
+              options={[
+                { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "136hz", label: <FrequencyNoiseOptionLabel text="136 Hz" categories={FREQUENCY_BEST_FOR["136hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "100hz", label: <FrequencyNoiseOptionLabel text="100 Hz" categories={FREQUENCY_BEST_FOR["100hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "disabled", label: "Disabled" },
+              ]}
+              onValueChange={(value) => {
+                const main = useSettingsStore.getState().calmingFrequency;
+                setScheduleResetCalmingFrequency(value === main ? null : value);
+              }}
+            />
+            <SettingsUI.PickerItem
+              label="Noise bed"
+              secondaryLabel="Override main noise bed setting"
+              iconName="musical-notes"
+              iconBackgroundColor="#60a5fa"
+              value={scheduleResetNoiseBed ?? noiseBed}
+              options={[
+                { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "green", label: <FrequencyNoiseOptionLabel text="Green noise" categories={NOISE_BEST_FOR.green} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "pink", label: <FrequencyNoiseOptionLabel text="Pink noise" categories={NOISE_BEST_FOR.pink} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "disabled", label: "Disabled" },
+              ]}
+              onValueChange={(value) => {
+                const main = useSettingsStore.getState().noiseBed;
+                setScheduleResetNoiseBed(value === main ? null : value);
+              }}
+            />
+            <VolumeSliderRow
+              label="Voice volume"
+              value={scheduleResetVoiceVolume ?? defaultVoiceVolume}
+              onValueChange={(v) => {
+                setScheduleResetVoiceVolume(v);
+                playVoiceVolumePreview(v);
+              }}
+              colorScheme={colorScheme}
+            />
+            <VolumeSliderRow
+              label="Sound volume"
+              value={scheduleResetToneVolume ?? defaultToneVolume}
+              onValueChange={(v) => setToneVolumeMultiplier(v)}
+              onSlidingStart={handleResetSoundSliderStart}
+              onSlidingComplete={async (finalValue) => {
+                setToneVolumeMultiplier(finalValue);
+                setScheduleResetToneVolume(finalValue);
+                await handleResetSoundSliderComplete();
+              }}
+              colorScheme={colorScheme}
+              throttleMs={80}
+            />
+            <SettingsUI.SwitchItem
+              label="Vibration"
+              secondaryLabel="Override main vibration setting"
+              iconName="ellipse"
+              iconBackgroundColor="#60a5fa"
+              value={scheduleResetVibrationEnabled ?? vibrationEnabled}
+              onValueChange={(value) => {
+                const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
+                setScheduleResetVibrationEnabled(value === mainVibrationEnabled ? null : value);
+              }}
+            />
+            <VolumeSliderRow
+              label="Vibration strength"
+              value={scheduleResetVibrationStrength ?? vibrationStrength}
+              onValueChange={(v) => {
+                const main = useSettingsStore.getState().vibrationStrength;
+                setScheduleResetVibrationStrength(v === main ? null : v);
+                playVibrationStrengthPreview(v);
+              }}
+              onSlidingComplete={(finalValue) => {
+                const main = useSettingsStore.getState().vibrationStrength;
+                setScheduleResetVibrationStrength(finalValue === main ? null : finalValue);
+              }}
+              colorScheme={colorScheme}
+              throttleMs={120}
+            />
+          </SettingsUI.Section>
+        )}
+        {submenu === "appearance" && (
+          <SettingsUI.Section label="Appearance">
+            <ColorPicker
+              selectedColor={scheduleResetColor}
+              onColorChange={setScheduleResetColor}
+              label="Breathing animation color"
+              iconName="color-palette"
+              iconBackgroundColor="#60a5fa"
+            />
+            <SettingsUI.SwitchItem
+              label="Override main background"
+              secondaryLabel="Use a different background during Reset time window"
+              iconName="color-palette"
+              iconBackgroundColor="#60a5fa"
+              value={scheduleResetBackgroundColor !== null}
+              onValueChange={(value) => {
+                if (value) {
+                  setScheduleResetBackgroundColor(exerciseBackgroundColor);
+                  setScheduleResetBackgroundImage(exerciseBackgroundImage);
+                } else {
+                  setScheduleResetBackgroundColor(null);
+                  setScheduleResetBackgroundImage(null);
+                }
+              }}
+            />
+            {scheduleResetBackgroundColor !== null && (
+              <BackgroundPicker
+                backgroundColor={scheduleResetBackgroundColor}
+                onBackgroundColorChange={setScheduleResetBackgroundColor}
+                backgroundImage={scheduleResetBackgroundImage}
+                onBackgroundImageChange={setScheduleResetBackgroundImage}
+              />
+            )}
+          </SettingsUI.Section>
+        )}
       </ScrollView>
     </View>
   );
@@ -1163,6 +1748,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
 
 export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
+  const [submenu, setSubmenu] = useState<ScheduleSubmenu>("main");
   const customPatterns = useSettingsStore((state) => state.customPatterns);
   const scheduleRestore = useSettingsStore((state) => state.scheduleRestore);
   const setScheduleRestore = useSettingsStore((state) => state.setScheduleRestore);
@@ -1175,8 +1761,11 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const scheduleResetStartTime = useSettingsStore((state) => state.scheduleResetStartTime);
   const scheduleResetEndTime = useSettingsStore((state) => state.scheduleResetEndTime);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
+  const vibrationStrength = useSettingsStore((state) => state.vibrationStrength);
   const scheduleRestoreVibrationEnabled = useSettingsStore((state) => state.scheduleRestoreVibrationEnabled);
   const setScheduleRestoreVibrationEnabled = useSettingsStore((state) => state.setScheduleRestoreVibrationEnabled);
+  const scheduleRestoreVibrationStrength = useSettingsStore((state) => state.scheduleRestoreVibrationStrength);
+  const setScheduleRestoreVibrationStrength = useSettingsStore((state) => state.setScheduleRestoreVibrationStrength);
   const guidedBreathingVoice = useSettingsStore((state) => state.guidedBreathingVoice);
   const scheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.scheduleRestoreGuidedBreathingVoice);
   const setScheduleRestoreGuidedBreathingVoice = useSettingsStore((state) => state.setScheduleRestoreGuidedBreathingVoice);
@@ -1191,8 +1780,35 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const setScheduleRestoreBackgroundColor = useSettingsStore((state) => state.setScheduleRestoreBackgroundColor);
   const scheduleRestoreBackgroundImage = useSettingsStore((state) => state.scheduleRestoreBackgroundImage);
   const setScheduleRestoreBackgroundImage = useSettingsStore((state) => state.setScheduleRestoreBackgroundImage);
+  const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
+  const noiseBed = useSettingsStore((state) => state.noiseBed);
+  const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
+  const defaultToneVolume = useSettingsStore((state) => state.defaultToneVolume);
+  const scheduleRestoreCalmingFrequency = useSettingsStore((state) => state.scheduleRestoreCalmingFrequency);
+  const setScheduleRestoreCalmingFrequency = useSettingsStore((state) => state.setScheduleRestoreCalmingFrequency);
+  const scheduleRestoreNoiseBed = useSettingsStore((state) => state.scheduleRestoreNoiseBed);
+  const setScheduleRestoreNoiseBed = useSettingsStore((state) => state.setScheduleRestoreNoiseBed);
+  const scheduleRestoreVoiceVolume = useSettingsStore((state) => state.scheduleRestoreVoiceVolume);
+  const setScheduleRestoreVoiceVolume = useSettingsStore((state) => state.setScheduleRestoreVoiceVolume);
+  const scheduleRestoreToneVolume = useSettingsStore((state) => state.scheduleRestoreToneVolume);
+  const setScheduleRestoreToneVolume = useSettingsStore((state) => state.setScheduleRestoreToneVolume);
 
   const allPatterns = [...patternPresets, ...customPatterns];
+
+  const restoreSoundSliderStartRef = React.useRef(0);
+  const handleRestoreSoundSliderStart = async () => {
+    restoreSoundSliderStartRef.current = Date.now();
+    const cf = (scheduleRestoreCalmingFrequency ?? calmingFrequency) === "disabled" ? "200hz" : (scheduleRestoreCalmingFrequency ?? calmingFrequency);
+    await setupFrequencyTone(cf, scheduleRestoreNoiseBed ?? noiseBed);
+    setToneVolumeMultiplier(scheduleRestoreToneVolume ?? defaultToneVolume);
+    await startFrequencyTone({ quickFade: true });
+  };
+  const handleRestoreSoundSliderComplete = async () => {
+    const elapsed = Date.now() - restoreSoundSliderStartRef.current;
+    if (elapsed < 1200) await new Promise((r) => setTimeout(r, 1200 - elapsed));
+    await stopFrequencyTone();
+    await releaseFrequencyTone();
+  };
 
   const handleStartTimeChange = (newTime: string) => {
     const validation = validateScheduleTimeRange(
@@ -1246,6 +1862,17 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
         backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],
       }}
     >
+      {submenu !== "main" && (
+        <Pressable
+          onPress={() => setSubmenu("main")}
+          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 12 }}
+        >
+          <Ionicons name="chevron-back" size={24} color={colorScheme === "dark" ? "#007AFF" : colors["blue-500"]} />
+          <Text style={{ color: colorScheme === "dark" ? "#007AFF" : colors["blue-500"], fontSize: 17, marginLeft: 4 }}>
+            Back
+          </Text>
+        </Pressable>
+      )}
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="automatic"
@@ -1254,151 +1881,255 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
           paddingBottom: 20,
         }}
       >
-        <SettingsUI.Section label="Time Range">
-          <SettingsUI.PickerItem
-            label="Start Time"
-            iconName="time-outline"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreStartTime || ""}
-            options={[{ value: "", label: "Not set" }, ...timeOptions]}
-            onValueChange={handleStartTimeChange}
-          />
-          <SettingsUI.PickerItem
-            label="End Time"
-            iconName="time-outline"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreEndTime || ""}
-            options={[{ value: "", label: "Not set" }, ...timeOptions]}
-            onValueChange={handleEndTimeChange}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Breathing Patterns">
-          <SettingsUI.MultiSelectItem
-            label="Select Patterns"
-            iconName="list"
-            iconBackgroundColor="#a78bfa"
-            selectedValues={scheduleRestore}
-            emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.restore[0])?.name ?? "Deep Calm"}`}
-            options={allPatterns.map((preset) => {
-              const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
-              const displayLabel = hasIntervalsInName
-                ? preset.name
-                : `${preset.name} (${preset.steps
-                    .map((duration) => duration / ms("1 sec"))
-                    .join("-")})`;
-              const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
-              return {
-                value: preset.id,
-                label: isBuiltIn ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={{
-                        color: colorScheme === "dark" ? "#ffffff" : undefined,
-                        flexShrink: 0,
-                        marginRight: 6,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {displayLabel}
-                    </Text>
-                    <ScheduleDots patternId={preset.id} />
-                  </View>
-                ) : (
-                  displayLabel
-                ),
-              };
-            })}
-            onValueChange={setScheduleRestore}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Sounds">
-          <SettingsUI.PickerItem
-            label="Guided breathing"
-            secondaryLabel="Override main guided breathing setting"
-            iconName="volume-medium"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreGuidedBreathingVoice ?? guidedBreathingVoice}
-            options={
-              [
-                { value: "female", label: "Female" },
-                { value: "bell", label: "Bell" },
-                { value: "disabled", label: "Disabled" },
-              ] as { value: GuidedBreathingMode; label: string }[]
-            }
-            onValueChange={(value) => {
-              const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
-              setScheduleRestoreGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
-            }}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Appearance">
-          <ColorPicker
-            selectedColor={scheduleRestoreColor}
-            onColorChange={setScheduleRestoreColor}
-            label="Breathing animation color"
-            iconName="color-palette"
-            iconBackgroundColor="#a78bfa"
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Background">
-          <SettingsUI.SwitchItem
-            label="Override main background"
-            secondaryLabel="Use a different background during Restore time window"
-            iconName="color-palette"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreBackgroundColor !== null}
-            onValueChange={(value) => {
-              if (value) {
-                setScheduleRestoreBackgroundColor(exerciseBackgroundColor);
-                setScheduleRestoreBackgroundImage(exerciseBackgroundImage);
-              } else {
-                setScheduleRestoreBackgroundColor(null);
-                setScheduleRestoreBackgroundImage(null);
-              }
-            }}
-          />
-          {scheduleRestoreBackgroundColor !== null && (
-            <BackgroundPicker
-              backgroundColor={scheduleRestoreBackgroundColor}
-              onBackgroundColorChange={setScheduleRestoreBackgroundColor}
-              backgroundImage={scheduleRestoreBackgroundImage}
-              onBackgroundImageChange={setScheduleRestoreBackgroundImage}
+        {submenu === "main" && (
+          <>
+            <SettingsUI.Section label="Time Range">
+              <SettingsUI.PickerItem
+                label="Start Time"
+                iconName="time-outline"
+                iconBackgroundColor="#a78bfa"
+                value={scheduleRestoreStartTime || ""}
+                options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                onValueChange={handleStartTimeChange}
+              />
+              <SettingsUI.PickerItem
+                label="End Time"
+                iconName="time-outline"
+                iconBackgroundColor="#a78bfa"
+                value={scheduleRestoreEndTime || ""}
+                options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                onValueChange={handleEndTimeChange}
+              />
+            </SettingsUI.Section>
+            <SettingsUI.Section label="Restore">
+              <SettingsUI.LinkItem
+                label="Patterns"
+                iconName="body"
+                iconBackgroundColor="#a78bfa"
+                value={
+                  scheduleRestore.length > 0
+                    ? `${scheduleRestore.length} selected`
+                    : `Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.restore[0])?.name ?? "Deep Calm"}`
+                }
+                onPress={() => setSubmenu("patterns")}
+              />
+              <SettingsUI.LinkItem
+                label="Sounds & Haptics"
+                iconName="volume-medium"
+                iconBackgroundColor="#a78bfa"
+                value=""
+                onPress={() => setSubmenu("sounds")}
+              />
+              <SettingsUI.LinkItem
+                label="Appearance"
+                iconName="color-palette"
+                iconBackgroundColor="#a78bfa"
+                value=""
+                onPress={() => setSubmenu("appearance")}
+              />
+            </SettingsUI.Section>
+            <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
+              <SettingsUI.StepperItem
+                label="Exercise timer"
+                secondaryLabel="Time limit in minutes"
+                iconName="timer"
+                iconBackgroundColor="#a78bfa"
+                value={scheduleRestoreTimeLimit / ms("1 min")}
+                fractionDigits={1}
+                decreaseDisabled={scheduleRestoreTimeLimit <= 0}
+                increaseDisabled={scheduleRestoreTimeLimit >= maxTimeLimit}
+                onDecrease={() => {
+                  const newLimit = Math.max(0, scheduleRestoreTimeLimit - ms("0.5 min"));
+                  setScheduleRestoreTimeLimit(newLimit);
+                }}
+                onIncrease={() => {
+                  const newLimit = Math.min(maxTimeLimit, scheduleRestoreTimeLimit + ms("0.5 min"));
+                  setScheduleRestoreTimeLimit(newLimit);
+                }}
+              />
+            </SettingsUI.Section>
+          </>
+        )}
+        {submenu === "patterns" && (
+          <SettingsUI.Section label="Patterns">
+            <SettingsUI.MultiSelectItem
+              label="Select Patterns"
+              iconName="body"
+              iconBackgroundColor="#a78bfa"
+              selectedValues={scheduleRestore}
+              emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.restore[0])?.name ?? "Deep Calm"}`}
+              options={allPatterns.map((preset) => {
+                const hasIntervalsInName = preset.name.includes("(") && preset.name.includes(")");
+                const displayLabel = hasIntervalsInName
+                  ? preset.name
+                  : `${preset.name} (${preset.steps
+                      .map((duration) => duration / ms("1 sec"))
+                      .join("-")})`;
+                const isBuiltIn = patternPresets.some((p) => p.id === preset.id);
+                return {
+                  value: preset.id,
+                  label: isBuiltIn ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          color: colorScheme === "dark" ? "#ffffff" : undefined,
+                          flexShrink: 0,
+                          marginRight: 6,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {displayLabel}
+                      </Text>
+                      <ScheduleDots patternId={preset.id} />
+                    </View>
+                  ) : (
+                    displayLabel
+                  ),
+                };
+              })}
+              onValueChange={setScheduleRestore}
             />
-          )}
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Timer">
-          <SettingsUI.StepperItem
-            label="Exercise timer"
-            secondaryLabel="Time limit in minutes"
-            iconName="timer"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreTimeLimit / ms("1 min")}
-            fractionDigits={1}
-            decreaseDisabled={scheduleRestoreTimeLimit <= 0}
-            increaseDisabled={scheduleRestoreTimeLimit >= maxTimeLimit}
-            onDecrease={() => {
-              const newLimit = Math.max(0, scheduleRestoreTimeLimit - ms("0.5 min"));
-              setScheduleRestoreTimeLimit(newLimit);
-            }}
-            onIncrease={() => {
-              const newLimit = Math.min(maxTimeLimit, scheduleRestoreTimeLimit + ms("0.5 min"));
-              setScheduleRestoreTimeLimit(newLimit);
-            }}
-          />
-        </SettingsUI.Section>
-        <SettingsUI.Section label="Haptics" hideBottomBorderAndroid>
-          <SettingsUI.SwitchItem
-            label="Vibration"
-            secondaryLabel="Override main vibration setting"
-            iconName="ellipse"
-            iconBackgroundColor="#a78bfa"
-            value={scheduleRestoreVibrationEnabled ?? vibrationEnabled}
-            onValueChange={(value) => {
-              const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
-              setScheduleRestoreVibrationEnabled(value === mainVibrationEnabled ? null : value);
-            }}
-          />
-        </SettingsUI.Section>
+          </SettingsUI.Section>
+        )}
+        {submenu === "sounds" && (
+          <SettingsUI.Section label="Sounds & Haptics">
+            <SettingsUI.PickerItem
+              label="Guided breathing"
+              secondaryLabel="Override main guided breathing setting"
+              iconName="volume-medium"
+              iconBackgroundColor="#a78bfa"
+              value={scheduleRestoreGuidedBreathingVoice ?? guidedBreathingVoice}
+              options={
+                [
+                  { value: "female", label: "Female" },
+                  { value: "bell", label: "Bell" },
+                  { value: "disabled", label: "Disabled" },
+                ] as { value: GuidedBreathingMode; label: string }[]
+              }
+              onValueChange={(value) => {
+                const mainGuidedBreathingVoice = useSettingsStore.getState().guidedBreathingVoice;
+                setScheduleRestoreGuidedBreathingVoice(value === mainGuidedBreathingVoice ? null : value);
+              }}
+            />
+            <SettingsUI.PickerItem
+              label="Calming frequency"
+              secondaryLabel="Override main calming frequency setting"
+              iconName="musical-notes"
+              iconBackgroundColor="#a78bfa"
+              value={scheduleRestoreCalmingFrequency ?? calmingFrequency}
+              options={[
+                { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "136hz", label: <FrequencyNoiseOptionLabel text="136 Hz" categories={FREQUENCY_BEST_FOR["136hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "100hz", label: <FrequencyNoiseOptionLabel text="100 Hz" categories={FREQUENCY_BEST_FOR["100hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "disabled", label: "Disabled" },
+              ]}
+              onValueChange={(value) => {
+                const main = useSettingsStore.getState().calmingFrequency;
+                setScheduleRestoreCalmingFrequency(value === main ? null : value);
+              }}
+            />
+            <SettingsUI.PickerItem
+              label="Noise bed"
+              secondaryLabel="Override main noise bed setting"
+              iconName="musical-notes"
+              iconBackgroundColor="#a78bfa"
+              value={scheduleRestoreNoiseBed ?? noiseBed}
+              options={[
+                { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "green", label: <FrequencyNoiseOptionLabel text="Green noise" categories={NOISE_BEST_FOR.green} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "pink", label: <FrequencyNoiseOptionLabel text="Pink noise" categories={NOISE_BEST_FOR.pink} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
+                { value: "disabled", label: "Disabled" },
+              ]}
+              onValueChange={(value) => {
+                const main = useSettingsStore.getState().noiseBed;
+                setScheduleRestoreNoiseBed(value === main ? null : value);
+              }}
+            />
+            <VolumeSliderRow
+              label="Voice volume"
+              value={scheduleRestoreVoiceVolume ?? defaultVoiceVolume}
+              onValueChange={(v) => {
+                setScheduleRestoreVoiceVolume(v);
+                playVoiceVolumePreview(v);
+              }}
+              colorScheme={colorScheme}
+            />
+            <VolumeSliderRow
+              label="Sound volume"
+              value={scheduleRestoreToneVolume ?? defaultToneVolume}
+              onValueChange={(v) => setToneVolumeMultiplier(v)}
+              onSlidingStart={handleRestoreSoundSliderStart}
+              onSlidingComplete={async (finalValue) => {
+                setToneVolumeMultiplier(finalValue);
+                setScheduleRestoreToneVolume(finalValue);
+                await handleRestoreSoundSliderComplete();
+              }}
+              colorScheme={colorScheme}
+              throttleMs={80}
+            />
+            <SettingsUI.SwitchItem
+              label="Vibration"
+              secondaryLabel="Override main vibration setting"
+              iconName="ellipse"
+              iconBackgroundColor="#a78bfa"
+              value={scheduleRestoreVibrationEnabled ?? vibrationEnabled}
+              onValueChange={(value) => {
+                const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
+                setScheduleRestoreVibrationEnabled(value === mainVibrationEnabled ? null : value);
+              }}
+            />
+            <VolumeSliderRow
+              label="Vibration strength"
+              value={scheduleRestoreVibrationStrength ?? vibrationStrength}
+              onValueChange={(v) => {
+                const main = useSettingsStore.getState().vibrationStrength;
+                setScheduleRestoreVibrationStrength(v === main ? null : v);
+                playVibrationStrengthPreview(v);
+              }}
+              onSlidingComplete={(finalValue) => {
+                const main = useSettingsStore.getState().vibrationStrength;
+                setScheduleRestoreVibrationStrength(finalValue === main ? null : finalValue);
+              }}
+              colorScheme={colorScheme}
+              throttleMs={120}
+            />
+          </SettingsUI.Section>
+        )}
+        {submenu === "appearance" && (
+          <SettingsUI.Section label="Appearance">
+            <ColorPicker
+              selectedColor={scheduleRestoreColor}
+              onColorChange={setScheduleRestoreColor}
+              label="Breathing animation color"
+              iconName="color-palette"
+              iconBackgroundColor="#a78bfa"
+            />
+            <SettingsUI.SwitchItem
+              label="Override main background"
+              secondaryLabel="Use a different background during Restore time window"
+              iconName="color-palette"
+              iconBackgroundColor="#a78bfa"
+              value={scheduleRestoreBackgroundColor !== null}
+              onValueChange={(value) => {
+                if (value) {
+                  setScheduleRestoreBackgroundColor(exerciseBackgroundColor);
+                  setScheduleRestoreBackgroundImage(exerciseBackgroundImage);
+                } else {
+                  setScheduleRestoreBackgroundColor(null);
+                  setScheduleRestoreBackgroundImage(null);
+                }
+              }}
+            />
+            {scheduleRestoreBackgroundColor !== null && (
+              <BackgroundPicker
+                backgroundColor={scheduleRestoreBackgroundColor}
+                onBackgroundColorChange={setScheduleRestoreBackgroundColor}
+                backgroundImage={scheduleRestoreBackgroundImage}
+                onBackgroundImageChange={setScheduleRestoreBackgroundImage}
+              />
+            )}
+          </SettingsUI.Section>
+        )}
       </ScrollView>
     </View>
   );
