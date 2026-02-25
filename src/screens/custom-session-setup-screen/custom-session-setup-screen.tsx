@@ -176,6 +176,7 @@ export const CustomSessionSetupScreen: FC<
                     options={
                       [
                         { value: "female", label: "Female" },
+                        { value: "male", label: "Male" },
                         { value: "bell", label: "Bell" },
                         { value: "disabled", label: "Disabled" },
                       ] as { value: GuidedBreathingMode; label: string }[]
@@ -223,8 +224,7 @@ export const CustomSessionSetupScreen: FC<
                 
                 <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
                   <SettingsUI.StepperItem
-                    label="Exercise timer"
-                    secondaryLabel="Time limit in minutes"
+                    label="Exercise Timer"
                     iconName="timer"
                     iconBackgroundColor="#fb7185"
                     value={selectedTimeLimit > 0 ? selectedTimeLimit / ms("1 min") : "∞"}

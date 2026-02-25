@@ -433,8 +433,7 @@ export const SettingsRootScreen: FC<
                   </SettingsUI.Section>
                   <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
                     <SettingsUI.StepperItem
-                      label="Exercise timer"
-                      secondaryLabel="Time limit in minutes"
+                      label="Exercise Timer"
                       iconName="timer"
                       iconBackgroundColor="#fb7185"
                       value={timeLimit > 0 ? timeLimit / ms("1 min") : "∞"}
@@ -455,8 +454,9 @@ export const SettingsRootScreen: FC<
                     iconBackgroundColor="#fdba74"
                     value={guidedBreathingVoice}
                     options={[
-                      { value: "female", label: "Female" },
-                      { value: "bell", label: "Bell" },
+{ value: "female", label: "Female" },
+                        { value: "male", label: "Male" },
+                        { value: "bell", label: "Bell" },
                       { value: "disabled", label: "Disabled" },
                     ] as { value: GuidedBreathingMode; label: string }[]}
                     onValueChange={setGuidedBreathingVoice}
@@ -492,7 +492,7 @@ export const SettingsRootScreen: FC<
                     value={defaultVoiceVolume}
                     onValueChange={(v) => {
                       setDefaultVoiceVolume(v);
-                      playVoiceVolumePreview(v);
+                      playVoiceVolumePreview(v, guidedBreathingVoice);
                     }}
                     colorScheme={colorScheme}
                   />
@@ -626,6 +626,7 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
             options={
               [
                 { value: "female", label: "Female" },
+                { value: "male", label: "Male" },
                 { value: "bell", label: "Bell" },
                 { value: "disabled", label: "Disabled" },
               ] as { value: GuidedBreathingMode; label: string }[]
@@ -663,7 +664,7 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
             value={defaultVoiceVolume}
             onValueChange={(v) => {
               setDefaultVoiceVolume(v);
-              playVoiceVolumePreview(v);
+              playVoiceVolumePreview(v, guidedBreathingVoice);
             }}
             colorScheme={colorScheme}
           />
@@ -712,8 +713,7 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
         </SettingsUI.Section>
         <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
           <SettingsUI.StepperItem
-            label="Exercise timer"
-            secondaryLabel="Time limit in minutes"
+            label="Exercise Timer"
             value={timeLimit > 0 ? timeLimit / ms("1 min") : "∞"}
             fractionDigits={1}
             iconName="timer"
@@ -1152,8 +1152,7 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
             </SettingsUI.Section>
             <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
               <SettingsUI.StepperItem
-                label="Exercise timer"
-                secondaryLabel="Time limit in minutes"
+                label="Exercise Timer"
                 iconName="timer"
                 iconBackgroundColor="#fbbf24"
                 value={scheduleRiseTimeLimit / ms("1 min")}
@@ -1223,8 +1222,9 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
               value={scheduleRiseGuidedBreathingVoice ?? guidedBreathingVoice}
               options={
                 [
-                  { value: "female", label: "Female" },
-                  { value: "bell", label: "Bell" },
+{ value: "female", label: "Female" },
+                        { value: "male", label: "Male" },
+                        { value: "bell", label: "Bell" },
                   { value: "disabled", label: "Disabled" },
                 ] as { value: GuidedBreathingMode; label: string }[]
               }
@@ -1272,7 +1272,7 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
               value={scheduleRiseVoiceVolume ?? defaultVoiceVolume}
               onValueChange={(v) => {
                 setScheduleRiseVoiceVolume(v);
-                playVoiceVolumePreview(v);
+                playVoiceVolumePreview(v, scheduleRiseGuidedBreathingVoice ?? guidedBreathingVoice);
               }}
               colorScheme={colorScheme}
             />
@@ -1541,8 +1541,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             </SettingsUI.Section>
             <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
               <SettingsUI.StepperItem
-                label="Exercise timer"
-                secondaryLabel="Time limit in minutes"
+                label="Exercise Timer"
                 iconName="timer"
                 iconBackgroundColor="#60a5fa"
                 value={scheduleResetTimeLimit / ms("1 min")}
@@ -1612,8 +1611,9 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               value={scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice}
               options={
                 [
-                  { value: "female", label: "Female" },
-                  { value: "bell", label: "Bell" },
+{ value: "female", label: "Female" },
+                        { value: "male", label: "Male" },
+                        { value: "bell", label: "Bell" },
                   { value: "disabled", label: "Disabled" },
                 ] as { value: GuidedBreathingMode; label: string }[]
               }
@@ -1661,7 +1661,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               value={scheduleResetVoiceVolume ?? defaultVoiceVolume}
               onValueChange={(v) => {
                 setScheduleResetVoiceVolume(v);
-                playVoiceVolumePreview(v);
+                playVoiceVolumePreview(v, scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice);
               }}
               colorScheme={colorScheme}
             />
@@ -1930,8 +1930,7 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
             </SettingsUI.Section>
             <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
               <SettingsUI.StepperItem
-                label="Exercise timer"
-                secondaryLabel="Time limit in minutes"
+                label="Exercise Timer"
                 iconName="timer"
                 iconBackgroundColor="#a78bfa"
                 value={scheduleRestoreTimeLimit / ms("1 min")}
@@ -2001,8 +2000,9 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
               value={scheduleRestoreGuidedBreathingVoice ?? guidedBreathingVoice}
               options={
                 [
-                  { value: "female", label: "Female" },
-                  { value: "bell", label: "Bell" },
+{ value: "female", label: "Female" },
+                        { value: "male", label: "Male" },
+                        { value: "bell", label: "Bell" },
                   { value: "disabled", label: "Disabled" },
                 ] as { value: GuidedBreathingMode; label: string }[]
               }
@@ -2050,7 +2050,7 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
               value={scheduleRestoreVoiceVolume ?? defaultVoiceVolume}
               onValueChange={(v) => {
                 setScheduleRestoreVoiceVolume(v);
-                playVoiceVolumePreview(v);
+                playVoiceVolumePreview(v, scheduleRestoreGuidedBreathingVoice ?? guidedBreathingVoice);
               }}
               colorScheme={colorScheme}
             />

@@ -1,1 +1,1 @@
-export type GuidedBreathingMode = "female" | "bell" | "disabled";
+export type GuidedBreathingMode = "female" | "male" | "bell" | "disabled";
