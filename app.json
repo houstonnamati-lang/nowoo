@@ -1,5 +1,5 @@
 {
-    "expo": {
+  "expo": {
     "name": "NoWoo",
     "slug": "nowoo",
     "scheme": "com.nowoo.app",
@@ -8,16 +8,21 @@
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/ios-icon.png",
       "resizeMode": "cover",
       "backgroundColor": "#2d3748"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/ios-icon.png",
       "buildNumber": "17",
-      "bundleIdentifier": "com.nowoo.app"
+      "bundleIdentifier": "com.nowoo.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "blockedPermissions": [
@@ -39,11 +44,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "8a2dbb83-3bcc-4d88-9d99-5fd3220273ea"
-      }
-    },
     "androidStatusBar": {
       "hidden": true
     },
@@ -52,7 +52,8 @@
         "expo-build-properties",
         {
           "android": {
-            "enableProguardInReleaseBuilds": true
+            "enableProguardInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],
@@ -65,7 +66,8 @@
           "backgroundColor": "#00000080"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-font"
     ],
     "notification": {
       "icon": "./assets/ios-icon.png",
@@ -73,6 +75,18 @@
       "iosDisplayInForeground": true,
       "androidMode": "default",
       "androidCollapsedTitle": "NoWoo"
-    }
+    },
+    "extra": {
+      "expo-navigation-bar": {
+        "position": "absolute",
+        "visibility": "hidden",
+        "behavior": "overlay-swipe",
+        "backgroundColor": "#00000080"
+      },
+      "eas": {
+        "projectId": "d65cea1d-abe6-49bf-9533-c52822e31ec1"
+      }
+    },
+    "owner": "r3app"
   }
 }
