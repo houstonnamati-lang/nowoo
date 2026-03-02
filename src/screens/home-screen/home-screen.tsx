@@ -10,8 +10,10 @@ import { Pressable } from "@nowoo/common/pressable";
 import { RootStackParamList } from "@nowoo/core/navigator";
 import { colors } from "@nowoo/design/colors";
 import { useSettingsStore } from "@nowoo/stores/settings";
+import { useAuthStore } from "@nowoo/stores/auth";
 import { useStreakStore } from "@nowoo/stores/streak";
 import { StreakModal } from "@nowoo/screens/exercise-screen/streak-modal";
+import { AccountCreationSheet } from "@nowoo/screens/home-screen/account-creation-sheet";
 import {
   getActiveScheduleCategory,
   getRandomPatternFromSchedule,
@@ -33,6 +35,10 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
   const { isHomeScreenReady, markHomeScreenAsReady } = useHomeScreenStatusStore();
   const insets = useSafeAreaInsets();
   const [showStreakModal, setShowStreakModal] = useState(false);
+  const [showAccountCreationSheet, setShowAccountCreationSheet] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const skipAuth = useAuthStore((state) => state.skipAuth);
+  const isGuest = skipAuth && !user;
   const currentStreak = useStreakStore((state) => state.currentStreak);
   
   // Get schedule data from store
@@ -220,22 +226,24 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
             gap: 6,
             paddingHorizontal: 12,
           }}
-          onPress={() => setShowStreakModal(true)}
+          onPress={() => (isGuest ? setShowAccountCreationSheet(true) : setShowStreakModal(true))}
         >
           <Ionicons
             name="flame"
             size={20}
             color="#ff6b35"
           />
-          <Text
-            style={{
-              color: colorScheme === "dark" ? "#f5f5f5" : "#000000",
-              fontSize: 16,
-              fontWeight: "600",
-            }}
-          >
-            {currentStreak}
-          </Text>
+          {!isGuest && (
+            <Text
+              style={{
+                color: colorScheme === "dark" ? "#f5f5f5" : "#000000",
+                fontSize: 16,
+                fontWeight: "600",
+              }}
+            >
+              {currentStreak}
+            </Text>
+          )}
         </Pressable>
         <Pressable
           style={{
@@ -290,10 +298,10 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
                 width: 288,
                 maxWidth: 320,
                 backgroundColor: activeCategory === "rise"
-                  ? "#FDA26B"
+                  ? "#fbbf24"
                   : activeCategory === "reset"
                   ? "#23cd32"
-                  : "#710193",
+                  : "#a78bfa",
                 height: 8,
                 borderTopLeftRadius: 10,
                 borderTopRightRadius: 10,
@@ -369,6 +377,11 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
       <StreakModal
         visible={showStreakModal}
         onClose={() => setShowStreakModal(false)}
+      />
+      <AccountCreationSheet
+        visible={showAccountCreationSheet}
+        onClose={() => setShowAccountCreationSheet(false)}
+        onSuccess={() => setShowAccountCreationSheet(false)}
       />
     </Animated.View>
   );

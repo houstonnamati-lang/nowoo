@@ -2,7 +2,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
 import ms from "ms";
 import React, { FC, useEffect, useState } from "react";
-import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions } from "react-native";
+import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions, TextInput, ActivityIndicator } from "react-native";
 import Slider from "@react-native-community/slider";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
@@ -16,6 +16,8 @@ import {
   useSettingsStore,
 } from "@nowoo/stores/settings";
 import { useAuthStore } from "@nowoo/stores/auth";
+import { getFirebaseAuth } from "@nowoo/config/firebase";
+import { sendPasswordResetEmail, updateProfile, deleteUser, signOut } from "firebase/auth";
 import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
 import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
 import { PatternPreset } from "@nowoo/types/pattern-preset";
@@ -133,13 +135,243 @@ const VolumeSliderRow: FC<VolumeSliderRowProps> = ({
   );
 };
 
+type AccountBottomSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  user: import("firebase/auth").User | null;
+  bgColor: string;
+  colorScheme: "dark" | "light" | undefined;
+  insets: { top: number; bottom: number; left: number; right: number };
+  onAccountDeleted: () => void;
+};
+
+const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
+  visible,
+  onClose,
+  user,
+  bgColor,
+  colorScheme,
+  insets,
+  onAccountDeleted,
+}) => {
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [loading, setLoading] = useState<"password" | "name" | "delete" | null>(null);
+  const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
+  const inputBg = colorScheme === "dark" ? "#1c1c1e" : "#f5f5f5";
+  const borderColor = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
+
+  React.useEffect(() => {
+    if (visible && user) {
+      setDisplayNameInput(user.displayName ?? "");
+    }
+  }, [visible, user?.displayName]);
+
+  const handleResetPassword = async () => {
+    if (!user?.email) return;
+    setLoading("password");
+    try {
+      const auth = getFirebaseAuth();
+      await sendPasswordResetEmail(auth, user.email);
+      Alert.alert("Email sent", "Check your email for a link to reset your password.");
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to send reset email.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!user) return;
+    const name = displayNameInput.trim();
+    setLoading("name");
+    try {
+      await updateProfile(user, { displayName: name || null });
+      Alert.alert("Saved", "Display name updated.");
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to update display name.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    if (!user) return;
+    Alert.alert(
+      "Delete account",
+      "This will permanently delete your account and sign you out. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setLoading("delete");
+            try {
+              await deleteUser(user);
+              const auth = getFirebaseAuth();
+              await signOut(auth);
+              useAuthStore.getState().resetAuth();
+              onAccountDeleted();
+              onClose();
+            } catch (e: any) {
+              if (e?.code === "auth/requires-recent-login") {
+                Alert.alert(
+                  "Re-sign in required",
+                  "For security, please sign out and sign back in, then try again."
+                );
+              } else {
+                Alert.alert("Error", e.message ?? "Failed to delete account.");
+              }
+            } finally {
+              setLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (!user) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1 }}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }} onPress={onClose} />
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: bgColor,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            maxHeight: Dimensions.get("window").height * 0.6,
+            paddingBottom: insets.bottom + 20,
+            paddingHorizontal: 18,
+          }}
+        >
+          <View style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}>
+            <View
+              style={{
+                width: 40,
+                height: 4,
+                backgroundColor: colorScheme === "dark" ? "#333" : "#ccc",
+                borderRadius: 2,
+              }}
+            />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: "600", color: textColor, marginBottom: 16 }}>
+            Account
+          </Text>
+          <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+            {user.email && (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontSize: 14, color: textColor, marginBottom: 6 }}>Reset password</Text>
+                <Text style={{ fontSize: 13, color: colorScheme === "dark" ? "#999" : "#666", marginBottom: 8 }}>
+                  Send a reset link to {user.email}
+                </Text>
+                <Pressable
+                  onPress={handleResetPassword}
+                  disabled={loading !== null}
+                  style={{
+                    backgroundColor: colors["blue-500"],
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  {loading === "password" ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: "#fff", fontWeight: "600" }}>Send reset email</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: textColor, marginBottom: 6 }}>Display name</Text>
+              <TextInput
+                value={displayNameInput}
+                onChangeText={setDisplayNameInput}
+                placeholder="Your name"
+                placeholderTextColor={colorScheme === "dark" ? "#666" : "#999"}
+                style={{
+                  backgroundColor: inputBg,
+                  borderWidth: 1,
+                  borderColor,
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  fontSize: 16,
+                  color: textColor,
+                }}
+              />
+              <Pressable
+                onPress={handleSaveDisplayName}
+                disabled={loading !== null}
+                style={{
+                  backgroundColor: colors["blue-500"],
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  marginTop: 10,
+                }}
+              >
+                {loading === "name" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>Save name</Text>
+                )}
+              </Pressable>
+            </View>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, color: textColor, marginBottom: 6 }}>Delete account</Text>
+              <Text style={{ fontSize: 13, color: colorScheme === "dark" ? "#999" : "#666", marginBottom: 8 }}>
+                Permanently delete your account and all data.
+              </Text>
+              <Pressable
+                onPress={handleDeleteAccount}
+                disabled={loading !== null}
+                style={{
+                  backgroundColor: "#dc2626",
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  alignItems: "center",
+                }}
+              >
+                {loading === "delete" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>Delete account</Text>
+                )}
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export const SettingsRootScreen: FC<
   NativeStackScreenProps<SettingsStackParamList, "SettingsRoot">
 > = ({ navigation }) => {
   console.log("SettingsRootScreen RENDERED");
   const [showQuickBreathSheet, setShowQuickBreathSheet] = useState(false);
   const [quickBreathSubmenu, setQuickBreathSubmenu] = useState<"main" | "sounds" | "appearance">("main");
+  const [showAccountSheet, setShowAccountSheet] = useState(false);
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((state) => state.user);
   
   const selectedPatternName = useSelectedPatternName();
   const selectedPatternDurations = useSelectedPatternSteps();
@@ -267,7 +499,7 @@ export const SettingsRootScreen: FC<
             <SettingsUI.LinkItem
               label="Reset"
               iconName="refresh"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={(() => {
                 const hasTime = scheduleResetStartTime && scheduleResetEndTime;
                 if (!hasTime) return "Not configured";
@@ -299,6 +531,17 @@ export const SettingsRootScreen: FC<
               }}
             />
           </SettingsUI.Section>
+          {user && (
+            <SettingsUI.Section label="Account">
+              <SettingsUI.LinkItem
+                label="Account"
+                iconName="person"
+                iconBackgroundColor="#64748b"
+                value={user.email ?? user.displayName ?? "Signed in"}
+                onPress={() => setShowAccountSheet(true)}
+              />
+            </SettingsUI.Section>
+          )}
           <SettingsUI.Section label="Appearance">
             <SettingsUI.SwitchItem
               label="Use system theme"
@@ -464,7 +707,7 @@ export const SettingsRootScreen: FC<
                   <SettingsUI.PickerItem
                     label="Calming frequency"
                     iconName="musical-notes"
-                    iconBackgroundColor="#60a5fa"
+                    iconBackgroundColor="#23cd32"
                     value={calmingFrequency}
                     options={[
                       { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
@@ -477,7 +720,7 @@ export const SettingsRootScreen: FC<
                   <SettingsUI.PickerItem
                     label="Noise bed"
                     iconName="musical-notes"
-                    iconBackgroundColor="#60a5fa"
+                    iconBackgroundColor="#23cd32"
                     value={noiseBed}
                     options={[
                       { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
@@ -551,6 +794,18 @@ export const SettingsRootScreen: FC<
           </View>
           </View>
         </Modal>
+
+        <AccountBottomSheet
+          visible={showAccountSheet}
+          onClose={() => setShowAccountSheet(false)}
+          user={user}
+          bgColor={bgColor}
+          colorScheme={colorScheme}
+          insets={insets}
+          onAccountDeleted={() => {
+            setShowAccountSheet(false);
+          }}
+        />
     </View>
   );
 };
@@ -636,7 +891,7 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
           <SettingsUI.PickerItem
             label="Calming frequency"
             iconName="musical-notes"
-            iconBackgroundColor="#60a5fa"
+            iconBackgroundColor="#23cd32"
             value={calmingFrequency}
             options={[
               { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
@@ -649,7 +904,7 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
           <SettingsUI.PickerItem
             label="Noise bed"
             iconName="musical-notes"
-            iconBackgroundColor="#60a5fa"
+            iconBackgroundColor="#23cd32"
             value={noiseBed}
             options={[
               { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
@@ -795,7 +1050,7 @@ export const SettingsPatternPickerScreen: FC<
             <SettingsUI.SwitchItem
               label="Custom breathing pattern"
               iconName="person"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={customPatternEnabled}
               onValueChange={(newValue) => {
                 LayoutAnimation.easeInEaseOut();
@@ -1498,7 +1753,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               <SettingsUI.PickerItem
                 label="Start Time"
                 iconName="time-outline"
-                iconBackgroundColor="#60a5fa"
+                iconBackgroundColor="#23cd32"
                 value={scheduleResetStartTime || ""}
                 options={[{ value: "", label: "Not set" }, ...timeOptions]}
                 onValueChange={handleStartTimeChange}
@@ -1506,7 +1761,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               <SettingsUI.PickerItem
                 label="End Time"
                 iconName="time-outline"
-                iconBackgroundColor="#60a5fa"
+                iconBackgroundColor="#23cd32"
                 value={scheduleResetEndTime || ""}
                 options={[{ value: "", label: "Not set" }, ...timeOptions]}
                 onValueChange={handleEndTimeChange}
@@ -1516,7 +1771,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               <SettingsUI.LinkItem
                 label="Patterns"
                 iconName="body"
-                iconBackgroundColor="#60a5fa"
+                iconBackgroundColor="#23cd32"
                 value={
                   scheduleReset.length > 0
                     ? `${scheduleReset.length} selected`
@@ -1527,14 +1782,14 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               <SettingsUI.LinkItem
                 label="Sounds & Haptics"
                 iconName="volume-medium"
-                iconBackgroundColor="#60a5fa"
+                iconBackgroundColor="#23cd32"
                 value=""
                 onPress={() => setSubmenu("sounds")}
               />
               <SettingsUI.LinkItem
                 label="Appearance"
                 iconName="color-palette"
-                iconBackgroundColor="#60a5fa"
+                iconBackgroundColor="#23cd32"
                 value=""
                 onPress={() => setSubmenu("appearance")}
               />
@@ -1543,7 +1798,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               <SettingsUI.StepperItem
                 label="Exercise Timer"
                 iconName="timer"
-                iconBackgroundColor="#60a5fa"
+                iconBackgroundColor="#23cd32"
                 value={scheduleResetTimeLimit / ms("1 min")}
                 fractionDigits={1}
                 decreaseDisabled={scheduleResetTimeLimit <= 0}
@@ -1565,7 +1820,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
             <SettingsUI.MultiSelectItem
               label="Select Patterns"
               iconName="body"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               selectedValues={scheduleReset}
               emptyLabel={`Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.reset[0])?.name ?? "Performance"}`}
               options={allPatterns.map((preset) => {
@@ -1607,7 +1862,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               label="Guided breathing"
               secondaryLabel="Override main guided breathing setting"
               iconName="volume-medium"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={scheduleResetGuidedBreathingVoice ?? guidedBreathingVoice}
               options={
                 [
@@ -1626,7 +1881,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               label="Calming frequency"
               secondaryLabel="Override main calming frequency setting"
               iconName="musical-notes"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={scheduleResetCalmingFrequency ?? calmingFrequency}
               options={[
                 { value: "200hz", label: <FrequencyNoiseOptionLabel text="200 Hz" categories={FREQUENCY_BEST_FOR["200hz"]} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
@@ -1643,7 +1898,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               label="Noise bed"
               secondaryLabel="Override main noise bed setting"
               iconName="musical-notes"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={scheduleResetNoiseBed ?? noiseBed}
               options={[
                 { value: "brown", label: <FrequencyNoiseOptionLabel text="Brown noise" categories={NOISE_BEST_FOR.brown} textColor={colorScheme === "dark" ? "#ffffff" : undefined} /> },
@@ -1682,7 +1937,7 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               label="Vibration"
               secondaryLabel="Override main vibration setting"
               iconName="ellipse"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={scheduleResetVibrationEnabled ?? vibrationEnabled}
               onValueChange={(value) => {
                 const mainVibrationEnabled = useSettingsStore.getState().vibrationEnabled;
@@ -1713,13 +1968,13 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
               onColorChange={setScheduleResetColor}
               label="Breathing animation color"
               iconName="color-palette"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
             />
             <SettingsUI.SwitchItem
               label="Override main background"
               secondaryLabel="Use a different background during Reset time window"
               iconName="color-palette"
-              iconBackgroundColor="#60a5fa"
+              iconBackgroundColor="#23cd32"
               value={scheduleResetBackgroundColor !== null}
               onValueChange={(value) => {
                 if (value) {

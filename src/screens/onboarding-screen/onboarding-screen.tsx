@@ -405,6 +405,17 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
             Skip for Development
           </Text>
         </Pressable>
+        <Pressable
+          onPress={handleSkip}
+          style={{
+            padding: 12,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: colorScheme === "dark" ? "#999999" : "#666666", fontSize: 12 }}>
+            Use in Guest Mode (Not Recommended)
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

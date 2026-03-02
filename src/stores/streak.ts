@@ -9,6 +9,12 @@ interface MoodEntry {
   timestamp: number;
 }
 
+export interface StreakData {
+  currentStreak: number;
+  lastActivityDate: string | null;
+  moodHistory: MoodEntry[];
+}
+
 interface StreakStore {
   currentStreak: number; // Days in a row
   lastActivityDate: string | null; // YYYY-MM-DD format
@@ -16,6 +22,12 @@ interface StreakStore {
   incrementStreak: () => void;
   recordMood: (mood: Mood) => void;
   getMoodPercentages: () => Record<Mood, number>;
+  /** Hydrate from Firebase (call when user signs in) */
+  hydrateFromRemote: (data: StreakData) => void;
+  /** Clear streak data (call when user signs out) */
+  clearForSignOut: () => void;
+  /** Get current state for saving to Firebase */
+  getStreakData: () => StreakData;
 }
 
 export const useStreakStore = create<StreakStore>()(
@@ -85,6 +97,24 @@ export const useStreakStore = create<StreakStore>()(
           neutral: Math.round((counts.neutral / total) * 100),
           happy: Math.round((counts.happy / total) * 100),
         };
+      },
+      hydrateFromRemote: (data) => {
+        set({
+          currentStreak: data.currentStreak ?? 0,
+          lastActivityDate: data.lastActivityDate ?? null,
+          moodHistory: Array.isArray(data.moodHistory) ? data.moodHistory : [],
+        });
+      },
+      clearForSignOut: () => {
+        set({
+          currentStreak: 0,
+          lastActivityDate: null,
+          moodHistory: [],
+        });
+      },
+      getStreakData: () => {
+        const { currentStreak, lastActivityDate, moodHistory } = get();
+        return { currentStreak, lastActivityDate, moodHistory };
       },
     }),
     {

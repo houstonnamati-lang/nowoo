@@ -6,8 +6,10 @@ import { fonts as fontAssets } from "@nowoo/assets/fonts";
 import { Navigator } from "@nowoo/core/navigator";
 import { useHydration, useSettingsStore } from "@nowoo/stores/settings";
 import { useAuthStore } from "@nowoo/stores/auth";
+import { useStreakStore } from "@nowoo/stores/streak";
 import { getFirebaseAuth } from "@nowoo/config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { loadUserStreak, saveUserStreak } from "@nowoo/services/streak-firestore";
 import {
   initializeImmersiveMode,
   useStickyImmersiveReset,
@@ -44,9 +46,58 @@ const Main: FC = () => {
   const theme = useSettingsStore((state) => state.theme);
   const shouldFollowSystemDarkMode = useSettingsStore((state) => state.shouldFollowSystemDarkMode);
   const hydrated = useHydration();
+  const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
+  const hydrateFromRemote = useStreakStore((state) => state.hydrateFromRemote);
+  const clearForSignOut = useStreakStore((state) => state.clearForSignOut);
+  const getStreakData = useStreakStore((state) => state.getStreakData);
+  const prevUserRef = React.useRef<typeof user>(undefined);
   useStickyImmersiveReset();
   useThemedStatusBar();
+
+  // Sync streak and mood to Firebase for signed-in users
+  useEffect(() => {
+    const currentUser = user;
+    const hadUser = prevUserRef.current != null;
+    prevUserRef.current = currentUser;
+
+    if (currentUser) {
+      // User signed in: load from Firestore and hydrate
+      loadUserStreak(currentUser.uid)
+        .then((data) => {
+          if (data) {
+            hydrateFromRemote(data);
+          } else {
+            // No doc yet: migrate local data to Firestore (first-time sync)
+            const local = getStreakData();
+            if (local.currentStreak > 0 || local.moodHistory.length > 0) {
+              saveUserStreak(currentUser.uid, local).catch(() => {});
+            }
+          }
+        })
+        .catch(() => {});
+    } else if (hadUser) {
+      // User signed out: clear streak store
+      clearForSignOut();
+    }
+  }, [user?.uid, hydrateFromRemote, clearForSignOut, getStreakData]);
+
+  // Save streak/mood to Firestore when store changes (debounced)
+  useEffect(() => {
+    if (!user?.uid) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const unsubscribe = useStreakStore.subscribe(() => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const data = useStreakStore.getState().getStreakData();
+        saveUserStreak(user.uid, data).catch(() => {});
+      }, 800);
+    });
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
+  }, [user?.uid]);
 
   // Initialize activity tracking and notifications
   useEffect(() => {
