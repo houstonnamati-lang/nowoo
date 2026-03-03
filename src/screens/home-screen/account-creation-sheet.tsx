@@ -1,5 +1,5 @@
 import React, { FC, useState } from "react";
-import { View, Text, TextInput, Alert, ActivityIndicator, Modal, Platform, Pressable, ScrollView, Dimensions } from "react-native";
+import { View, Text, TextInput, Alert, ActivityIndicator, Modal, Platform, Pressable, ScrollView, Dimensions, KeyboardAvoidingView, PanResponder, PanResponderGestureState } from "react-native";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -39,6 +39,18 @@ export const AccountCreationSheet: FC<AccountCreationSheetProps> = ({
   const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
   const inputBg = colorScheme === "dark" ? "#2c2c2e" : "#f5f5f5";
   const borderColor = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState: PanResponderGestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderRelease: (_, gestureState: PanResponderGestureState) => {
+        if (gestureState.dy > 40) {
+          onClose();
+        }
+      },
+    })
+  );
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -173,24 +185,27 @@ export const AccountCreationSheet: FC<AccountCreationSheetProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={insets.top}
+      >
         <Pressable style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }} onPress={onClose} />
         <View
           pointerEvents="box-none"
           style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
             backgroundColor: bgColor,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
-            maxHeight: Dimensions.get("window").height * 0.75,
+            height: Dimensions.get("window").height * 0.9,
             paddingBottom: insets.bottom + 20,
             paddingHorizontal: 24,
           }}
         >
-          <View style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}>
+          <View
+            {...panResponder.current.panHandlers}
+            style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}
+          >
             <View
               style={{
                 width: 40,
@@ -321,7 +336,7 @@ export const AccountCreationSheet: FC<AccountCreationSheetProps> = ({
             </Pressable>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, AppStateStatus } from "react-native";
+import { useStreakStore } from "/stores/streak";
 import { scheduleInactivityReminder, cancelInactivityReminder } from "./notifications";
 
 const LAST_ACTIVITY_KEY = "last-activity-timestamp";
@@ -46,12 +47,14 @@ export function initializeActivityTracker(): void {
 
   // Record activity on initial load
   recordActivity();
+  useStreakStore.getState().refreshForToday();
 
   // Track app state changes
   const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
     if (nextAppState === "active") {
-      // App came to foreground - record activity
+      // App came to foreground - record activity and refresh streak for today
       recordActivity();
+      useStreakStore.getState().refreshForToday();
     }
   });
 

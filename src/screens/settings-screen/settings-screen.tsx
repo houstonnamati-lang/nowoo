@@ -1,8 +1,8 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
 import ms from "ms";
-import React, { FC, useEffect, useState } from "react";
-import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions, TextInput, ActivityIndicator } from "react-native";
+import React, { FC, useEffect, useState, useRef } from "react";
+import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions, TextInput, ActivityIndicator, KeyboardAvoidingView, PanResponder, GestureResponderEvent, PanResponderGestureState } from "react-native";
 import Slider from "@react-native-community/slider";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
@@ -160,6 +160,18 @@ const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
   const inputBg = colorScheme === "dark" ? "#1c1c1e" : "#f5f5f5";
   const borderColor = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState: PanResponderGestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderRelease: (_, gestureState: PanResponderGestureState) => {
+        if (gestureState.dy > 40) {
+          onClose();
+        }
+      },
+    })
+  ).current;
+
   React.useEffect(() => {
     if (visible && user) {
       setDisplayNameInput(user.displayName ?? "");
@@ -245,19 +257,18 @@ const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
         <View
           pointerEvents="box-none"
           style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
             backgroundColor: bgColor,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
-            maxHeight: Dimensions.get("window").height * 0.6,
+            height: Dimensions.get("window").height * 0.9,
             paddingBottom: insets.bottom + 20,
             paddingHorizontal: 18,
           }}
         >
-          <View style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}>
+          <View
+            {...panResponder.panHandlers}
+            style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}
+          >
             <View
               style={{
                 width: 40,
@@ -421,6 +432,19 @@ export const SettingsRootScreen: FC<
 
   const allPatterns = [...patternPresets, ...customPatterns];
 
+  const quickBreathPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState: PanResponderGestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderRelease: (_, gestureState: PanResponderGestureState) => {
+        if (gestureState.dy > 40) {
+          setShowQuickBreathSheet(false);
+          setQuickBreathSubmenu("main");
+        }
+      },
+    })
+  ).current;
+
   const soundSliderStartRef = React.useRef(0);
   const handleSoundSliderStart = async () => {
     soundSliderStartRef.current = Date.now();
@@ -531,17 +555,6 @@ export const SettingsRootScreen: FC<
               }}
             />
           </SettingsUI.Section>
-          {user && (
-            <SettingsUI.Section label="Account">
-              <SettingsUI.LinkItem
-                label="Account"
-                iconName="person"
-                iconBackgroundColor="#64748b"
-                value={user.email ?? user.displayName ?? "Signed in"}
-                onPress={() => setShowAccountSheet(true)}
-              />
-            </SettingsUI.Section>
-          )}
           <SettingsUI.Section label="Appearance">
             <SettingsUI.SwitchItem
               label="Use system theme"
@@ -565,6 +578,16 @@ export const SettingsRootScreen: FC<
               />
             )}
           </SettingsUI.Section>
+          {user && (
+            <SettingsUI.Section label="Account">
+              <SettingsUI.LinkItem
+                label="Account"
+                iconName="person"
+                iconBackgroundColor="#64748b"
+                onPress={() => setShowAccountSheet(true)}
+              />
+            </SettingsUI.Section>
+          )}
           <SettingsUI.Section label="Development">
             <SettingsUI.LinkItem
               label="Reset Authentication"
@@ -594,7 +617,11 @@ export const SettingsRootScreen: FC<
           animationType="fade"
           onRequestClose={() => setShowQuickBreathSheet(false)}
         >
-          <View style={{ flex: 1 }}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={insets.top}
+          >
             <Pressable
               style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
               onPress={() => {
@@ -603,20 +630,19 @@ export const SettingsRootScreen: FC<
               }}
             />
             <View
-            pointerEvents="box-none"
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              backgroundColor: bgColor,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              maxHeight: Dimensions.get("window").height * 0.75,
-              paddingBottom: insets.bottom + 20,
-            }}
-          >
-            <View style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}>
+              pointerEvents="box-none"
+              style={{
+                backgroundColor: bgColor,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                height: Dimensions.get("window").height * 0.9,
+                paddingBottom: insets.bottom + 20,
+              }}
+            >
+            <View
+              {...quickBreathPanResponder.panHandlers}
+              style={{ paddingTop: 12, paddingBottom: 8, alignItems: "center" }}
+            >
               <View
                 style={{
                   width: 40,
@@ -792,7 +818,7 @@ export const SettingsRootScreen: FC<
               )}
             </ScrollView>
           </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         <AccountBottomSheet

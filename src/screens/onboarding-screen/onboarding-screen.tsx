@@ -375,7 +375,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
         onPress={handleGoogleSignIn}
         disabled={loading}
         style={{
-          backgroundColor: colorScheme === "dark" ? "#ffffff" : "#ffffff",
+          backgroundColor: "#ffffff",
           borderWidth: 1,
           borderColor: borderColor,
           borderRadius: 8,
@@ -388,7 +388,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
         }}
       >
         <Ionicons name="logo-google" size={20} color="#4285F4" style={{ marginRight: 8 }} />
-        <Text style={{ color: textColor, fontSize: 16, fontWeight: "600" }}>
+        <Text style={{ color: "#000000", fontSize: 16, fontWeight: "600" }}>
           Continue with Google
         </Text>
       </Pressable>

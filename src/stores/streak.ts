@@ -28,6 +28,8 @@ interface StreakStore {
   clearForSignOut: () => void;
   /** Get current state for saving to Firebase */
   getStreakData: () => StreakData;
+  /** Reset streak for today on app load/foreground */
+  refreshForToday: () => void;
 }
 
 export const useStreakStore = create<StreakStore>()(
@@ -97,6 +99,17 @@ export const useStreakStore = create<StreakStore>()(
           neutral: Math.round((counts.neutral / total) * 100),
           happy: Math.round((counts.happy / total) * 100),
         };
+      },
+      refreshForToday: () => {
+        const { lastActivityDate, currentStreak } = get();
+        if (!lastActivityDate || currentStreak === 0) return;
+        const today = new Date().toISOString().split("T")[0];
+        if (lastActivityDate === today) return;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        if (lastActivityDate === yesterdayStr) return;
+        set({ currentStreak: 0 });
       },
       hydrateFromRemote: (data) => {
         set({
