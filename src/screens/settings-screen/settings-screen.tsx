@@ -281,7 +281,11 @@ const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
           <Text style={{ fontSize: 18, fontWeight: "600", color: textColor, marginBottom: 16 }}>
             Account
           </Text>
-          <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 24 }}
+            showsVerticalScrollIndicator={false}
+          >
             {user.email && (
               <View style={{ marginBottom: 20 }}>
                 <Text style={{ fontSize: 14, color: textColor, marginBottom: 6 }}>Reset password</Text>
@@ -664,8 +668,11 @@ export const SettingsRootScreen: FC<
               </Pressable>
             )}
             <ScrollView
-              style={{ maxHeight: 400 }}
-              contentContainerStyle={{ paddingHorizontal: Platform.OS === "android" ? undefined : 18 }}
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingHorizontal: Platform.OS === "android" ? undefined : 18,
+                paddingBottom: 24,
+              }}
             >
               {quickBreathSubmenu === "main" && (
                 <>

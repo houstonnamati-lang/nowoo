@@ -67,7 +67,13 @@
         }
       ],
       "expo-apple-authentication",
-      "expo-font"
+      "expo-font",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.102876587020-1cd8tgd9jf8hnmo2tvasru4q2p1tc2gd"
+        }
+      ]
     ],
     "notification": {
       "icon": "./assets/ios-icon.png",

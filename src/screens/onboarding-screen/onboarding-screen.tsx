@@ -3,9 +3,6 @@ import { View, Text, TextInput, Alert, ActivityIndicator, Platform } from "react
 import { useColorScheme } from "nativewind";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as AuthSession from "expo-auth-session";
-import * as Crypto from "expo-crypto";
-import Constants from "expo-constants";
 import { Pressable } from "@nowoo/common/pressable";
 import { RootStackParamList } from "@nowoo/core/navigator";
 import { useAuthStore } from "@nowoo/stores/auth";
@@ -15,8 +12,10 @@ import {
   signInWithEmailAndPassword,
   signInWithCredential,
   OAuthProvider,
+  GoogleAuthProvider,
 } from "firebase/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 type OnboardingScreenProps = NativeStackScreenProps<RootStackParamList, "Onboarding">;
 
@@ -123,111 +122,21 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
   };
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
     try {
-      if (!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID) {
-        Alert.alert("Configuration Error", "Google Client ID is not set. Please add EXPO_PUBLIC_GOOGLE_CLIENT_ID to your .env file.");
-        setLoading(false);
-        return;
-      }
+      setLoading(true);
+      const userInfo = await GoogleSignin.signIn();
+      console.log("GoogleSignin userInfo:", JSON.stringify(userInfo, null, 2));
+      // Library can return either a plain object or { type, data }
+      const payload: any = (userInfo as any).data ?? userInfo;
+      const idToken = payload.idToken;
 
-      // Generate a random nonce for security
-      const randomString = Math.random().toString(36) + Date.now().toString(36);
-      const nonceHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        randomString,
-        { encoding: Crypto.CryptoEncoding.BASE64 }
-      );
-      // Convert base64 to base64url (URL-safe)
-      const nonce = nonceHash.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-
-      // Generate redirect URI
-      // Try Expo proxy first (for development), fallback to custom scheme (for production)
-      const proxyUri = AuthSession.makeRedirectUri({ useProxy: true });
-      const schemeUri = AuthSession.makeRedirectUri({ scheme: "com.nowoo.app" });
-      
-      // Use proxy URL if it's HTTPS (Expo proxy), otherwise use scheme
-      let redirectUri = proxyUri.startsWith("https://") ? proxyUri : schemeUri;
-      
-      // If we got a local exp:// URL, try to construct Expo proxy URL
-      if (redirectUri.startsWith("exp://")) {
-        const username = Constants.expoConfig?.owner || 
-                        Constants.expoConfig?.extra?.eas?.projectId?.split("-")[0] || 
-                        "anonymous";
-        const slug = Constants.expoConfig?.slug || "nowoo";
-        redirectUri = `https://auth.expo.io/@${username}/${slug}`;
-      }
-
-      // Log the redirect URI so user can add it to Google Cloud Console
-      console.log("=== Google OAuth Configuration ===");
-      console.log("Redirect URI:", redirectUri);
-      console.log("Proxy URI (attempted):", proxyUri);
-      console.log("Scheme URI (fallback):", schemeUri);
-      console.log("");
-      console.log("⚠️  IMPORTANT: Add this EXACT Redirect URI to Google Cloud Console:");
-      console.log("   " + redirectUri);
-      console.log("   Go to: APIs & Services → Credentials → Your OAuth Client → Authorized redirect URIs");
-      console.log("   Make sure it matches EXACTLY (including https:// and trailing slash if any)");
-      console.log("===================================");
-      
-      // Validate redirect URI is HTTPS (required for Google OAuth)
-      if (!redirectUri.startsWith("https://")) {
-        Alert.alert(
-          "Configuration Error",
-          `Redirect URI must be HTTPS. Current: ${redirectUri}\n\nPlease ensure you're using the Expo proxy URL or a custom HTTPS domain.`
-        );
-        setLoading(false);
-        return;
-      }
-
-      const request = new AuthSession.AuthRequest({
-        clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-        scopes: ["openid", "profile", "email"],
-        responseType: AuthSession.ResponseType.IdToken,
-        redirectUri,
-        nonce,
-        additionalParameters: {},
-        extraParams: {},
-      });
-
-      console.log("OAuth Request Details:", {
-        clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID?.substring(0, 20) + "...",
-        redirectUri,
-        hasNonce: !!nonce,
-        scopes: ["openid", "profile", "email"],
-      });
-
-      const result = await request.promptAsync({
-        authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-        usePKCE: false, // Google OAuth with id_token doesn't use PKCE
-      });
-
-      if (result.type !== "success") {
-        if (result.type === "cancel") {
-          return; // User canceled
-        }
-        console.error("Google OAuth Error:", result);
-        if (result.type === "error") {
-          console.error("Error details:", result.error);
-          console.error("Error params:", result.params);
-        }
-        throw new Error(result.type === "error" ? (result.error?.message || "Google Sign-In failed") : "Google Sign-In was canceled or failed");
-      }
-
-      const { id_token } = result.params;
-      if (!id_token) {
+      if (!idToken) {
         throw new Error("Google Sign-In failed: No ID token");
       }
 
-      // Create Firebase credential from Google credential
-      const provider = new OAuthProvider("google.com");
-      const firebaseCredential = provider.credential({
-        idToken: id_token,
-        rawNonce: nonce,
-      });
-
       const auth = getFirebaseAuth();
-      const userCredential = await signInWithCredential(auth, firebaseCredential);
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, googleCredential);
       setUser(userCredential.user);
       navigation.replace("Home");
     } catch (error: any) {

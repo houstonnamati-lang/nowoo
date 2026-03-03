@@ -9,6 +9,7 @@ import { useAuthStore } from "@nowoo/stores/auth";
 import { useStreakStore } from "@nowoo/stores/streak";
 import { getFirebaseAuth } from "@nowoo/config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { loadUserStreak, saveUserStreak } from "@nowoo/services/streak-firestore";
 import {
   initializeImmersiveMode,
@@ -54,6 +55,14 @@ const Main: FC = () => {
   const prevUserRef = React.useRef<typeof user>(undefined);
   useStickyImmersiveReset();
   useThemedStatusBar();
+
+  // Configure Google Sign-In once at startup
+  useEffect(() => {
+    GoogleSignin.configure({
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+    });
+  }, []);
 
   // Sync streak and mood to Firebase for signed-in users
   useEffect(() => {

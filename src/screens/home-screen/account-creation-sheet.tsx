@@ -1,12 +1,24 @@
 import React, { FC, useState } from "react";
-import { View, Text, TextInput, Alert, ActivityIndicator, Modal, Platform, Pressable, ScrollView, Dimensions, KeyboardAvoidingView, PanResponder, PanResponderGestureState } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Dimensions,
+  KeyboardAvoidingView,
+  PanResponder,
+  PanResponderGestureState,
+} from "react-native";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as AuthSession from "expo-auth-session";
-import * as Crypto from "expo-crypto";
-import Constants from "expo-constants";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useAuthStore } from "@nowoo/stores/auth";
 import { getFirebaseAuth } from "@nowoo/config/firebase";
 import {
@@ -14,6 +26,7 @@ import {
   signInWithEmailAndPassword,
   signInWithCredential,
   OAuthProvider,
+  GoogleAuthProvider,
 } from "firebase/auth";
 
 interface AccountCreationSheetProps {
@@ -128,50 +141,21 @@ export const AccountCreationSheet: FC<AccountCreationSheetProps> = ({
   };
 
   const handleGoogleSignIn = async () => {
-    if (!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID) {
-      Alert.alert("Configuration Error", "Google Sign-In is not configured.");
-      return;
-    }
-    setLoading(true);
     try {
-      const randomString = Math.random().toString(36) + Date.now().toString(36);
-      const nonceHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        randomString,
-        { encoding: Crypto.CryptoEncoding.BASE64 }
-      );
-      const nonce = nonceHash.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-      let redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
-      if (redirectUri.startsWith("exp://")) {
-        const username = Constants.expoConfig?.owner || Constants.expoConfig?.extra?.eas?.projectId?.split("-")[0] || "anonymous";
-        const slug = Constants.expoConfig?.slug || "nowoo";
-        redirectUri = `https://auth.expo.io/@${username}/${slug}`;
+      setLoading(true);
+      const userInfo = await GoogleSignin.signIn();
+      console.log("GoogleSignin userInfo (guest):", JSON.stringify(userInfo, null, 2));
+
+      // Library can return either a plain object or { type, data }
+      const payload: any = (userInfo as any).data ?? userInfo;
+      const idToken = payload.idToken;
+
+      if (!idToken) {
+        throw new Error("Google Sign-In failed: No ID token");
       }
-      if (!redirectUri.startsWith("https://")) {
-        Alert.alert("Configuration Error", "Redirect URI must be HTTPS.");
-        setLoading(false);
-        return;
-      }
-      const request = new AuthSession.AuthRequest({
-        clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-        scopes: ["openid", "profile", "email"],
-        responseType: AuthSession.ResponseType.IdToken,
-        redirectUri,
-        nonce,
-      });
-      const result = await request.promptAsync({
-        authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-        usePKCE: false,
-      });
-      if (result.type !== "success") {
-        if (result.type === "cancel") return;
-        throw new Error(result.type === "error" ? result.error?.message : "Sign-in failed");
-      }
-      const { id_token } = result.params;
-      if (!id_token) throw new Error("No ID token");
-      const provider = new OAuthProvider("google.com");
-      const firebaseCredential = provider.credential({ idToken: id_token, rawNonce: nonce });
+
       const auth = getFirebaseAuth();
+      const firebaseCredential = GoogleAuthProvider.credential(idToken);
       const userCredential = await signInWithCredential(auth, firebaseCredential);
       setUser(userCredential.user);
       onSuccess();
