@@ -69,6 +69,12 @@
       "expo-apple-authentication",
       "expo-font",
       [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/audio/cuebell1.mp3"]
+        }
+      ],
+      [
         "@react-native-google-signin/google-signin",
         {
           "iosUrlScheme": "com.googleusercontent.apps.102876587020-1cd8tgd9jf8hnmo2tvasru4q2p1tc2gd"

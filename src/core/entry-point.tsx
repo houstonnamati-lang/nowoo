@@ -18,7 +18,7 @@ import {
 import { useThemedStatusBar } from "@nowoo/utils/use-themed-status-bar";
 import { SplashScreenManager } from "./splash-screen-manager";
 import { initializeActivityTracker, checkAndScheduleInactivityReminder } from "@nowoo/services/activity-tracker";
-import { requestNotificationPermissions } from "@nowoo/services/notifications";
+import { requestNotificationPermissions, registerUserForPushNotifications } from "@nowoo/services/notifications";
 
 // Enable layout animations on Android so that we can animate views to their new
 // positions when a layout change happens
@@ -112,13 +112,21 @@ const Main: FC = () => {
   useEffect(() => {
     // Request notification permissions
     requestNotificationPermissions();
-    
+
     // Initialize activity tracker (tracks app state changes)
     initializeActivityTracker();
-    
+
     // Check inactivity and schedule reminder if needed
     checkAndScheduleInactivityReminder();
   }, []);
+
+  // Register authenticated users for remote push notifications
+  useEffect(() => {
+    if (!user?.uid) return;
+    registerUserForPushNotifications(user.uid).catch(() => {
+      // Push registration failures should not break the app
+    });
+  }, [user?.uid]);
 
   // Listen to Firebase auth state changes
   useEffect(() => {

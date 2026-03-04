@@ -11,6 +11,7 @@ export const images = {
     mountainNight: require("../../assets/images/screenbgs/mountainnight.png"),
     oceanNight: require("../../assets/images/screenbgs/oceannight.png"),
     desertNight: require("../../assets/images/screenbgs/desertnight.png"),
+    firstresponderflag: require("../../assets/images/screenbgs/firstresponderflag.jpg"),
   },
   screenBgThumbnails: {
     mountainSunrise: require("../../assets/images/screenbgs/thumbnails/mountainssunrise.png"),
@@ -19,5 +20,6 @@ export const images = {
     mountainNight: require("../../assets/images/screenbgs/thumbnails/mountainnight.png"),
     oceanNight: require("../../assets/images/screenbgs/thumbnails/oceannight.png"),
     desertNight: require("../../assets/images/screenbgs/thumbnails/desertnight.png"),
+    firstresponderflag: require("../../assets/images/screenbgs/thumbnails/firstresponderflag.jpg"),
   },
 };

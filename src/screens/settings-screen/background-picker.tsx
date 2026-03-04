@@ -58,6 +58,12 @@ export const BACKGROUND_IMAGES: BackgroundImageOption[] = [
     image: images.screenBgs.desertNight,
     thumbnail: images.screenBgThumbnails.desertNight,
   },
+  {
+    value: "firstresponderflag",
+    label: "First Responder Flag",
+    image: images.screenBgs.firstresponderflag,
+    thumbnail: images.screenBgThumbnails.firstresponderflag,
+  },
 ];
 
 interface BackgroundPickerProps {

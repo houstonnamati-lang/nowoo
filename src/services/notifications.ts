@@ -1,5 +1,7 @@
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { saveUserPushToken } from "@nowoo/services/push-token-firestore";
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -12,6 +14,14 @@ Notifications.setNotificationHandler({
 
 const INACTIVITY_NOTIFICATION_ID = "inactivity-reminder";
 const INACTIVITY_DELAY_HOURS = 12;
+/** Custom sound: same bell as in-app (cuebell1). Must match file in app.json expo-notifications sounds. */
+const NOTIFICATION_SOUND = "cuebell1.mp3";
+
+function getExpoProjectId(): string | undefined {
+  // Prefer explicit projectId when available (required for some dev environments)
+  const expoConfig = (Constants as any).expoConfig ?? {};
+  return expoConfig.extra?.eas?.projectId ?? expoConfig.extra?.eas?.projectID;
+}
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -27,17 +37,33 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     return false;
   }
 
-  // Configure notification channel for Android
+  // Configure notification channel for Android (custom sound for Android 8+)
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "Default",
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#2d3748",
+      sound: NOTIFICATION_SOUND,
     });
   }
 
   return true;
+}
+
+export async function registerUserForPushNotifications(userId: string): Promise<string | null> {
+  const granted = await requestNotificationPermissions();
+  if (!granted) return null;
+
+  const projectId = getExpoProjectId();
+  const tokenResponse = await Notifications.getExpoPushTokenAsync(
+    projectId ? { projectId } : undefined
+  );
+  const expoPushToken = tokenResponse.data;
+
+  await saveUserPushToken(userId, expoPushToken);
+
+  return expoPushToken;
 }
 
 export async function scheduleInactivityReminder(): Promise<void> {
@@ -54,7 +80,7 @@ export async function scheduleInactivityReminder(): Promise<void> {
     content: {
       title: "Time to breathe",
       body: "You haven't practiced in a while. Take a moment to breathe.",
-      sound: true,
+      sound: NOTIFICATION_SOUND,
       data: { type: "inactivity" },
     },
     trigger,
