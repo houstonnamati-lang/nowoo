@@ -21,7 +21,7 @@ type OnboardingScreenProps = NativeStackScreenProps<RootStackParamList, "Onboard
 
 export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
-  const { setUser, setSkipAuth } = useAuthStore();
+  const { setUser } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -74,8 +74,8 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleSkip = () => {
-    setSkipAuth(true);
+  const handleGuestMode = () => {
+    useAuthStore.getState().setSkipAuth(true);
     navigation.replace("Home");
   };
 
@@ -304,18 +304,7 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
 
       <View style={{ marginTop: 32, paddingTop: 24, borderTopWidth: 1, borderTopColor: borderColor }}>
         <Pressable
-          onPress={handleSkip}
-          style={{
-            padding: 12,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ color: colorScheme === "dark" ? "#999999" : "#666666", fontSize: 12 }}>
-            Skip for Development
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={handleSkip}
+          onPress={handleGuestMode}
           style={{
             padding: 12,
             alignItems: "center",

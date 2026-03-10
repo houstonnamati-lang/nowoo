@@ -1,7 +1,6 @@
 import React, { FC, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { animate } from "@nowoo/utils/animate";
-import { isDarkBackground } from "@nowoo/utils/is-dark-background";
 import { useEffectiveExerciseBackground } from "./use-effective-exercise-background";
 import { useInterval } from "@nowoo/utils/use-interval";
 import { getShuffledWords } from "./positive-words";
@@ -14,8 +13,7 @@ export const PositiveWord: FC = () => {
   const [words] = useState(() => getShuffledWords());
   const [currentIndex, setCurrentIndex] = useState(0);
   const opacityAnimVal = useRef(new Animated.Value(1)).current;
-  const { backgroundColor } = useEffectiveExerciseBackground();
-  const useLightText = isDarkBackground(backgroundColor);
+  const { useLightText } = useEffectiveExerciseBackground();
 
   const currentWord = words[currentIndex];
 

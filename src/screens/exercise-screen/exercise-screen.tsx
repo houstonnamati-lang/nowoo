@@ -86,8 +86,11 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
   const exerciseAnimationColor = useSettingsStore((state) => state.exerciseAnimationColor);
   const { backgroundColor: exerciseBackgroundColor, backgroundImage: exerciseBackgroundImage } =
     useEffectiveExerciseBackground();
+  const exerciseCustomBackgroundUri = useSettingsStore((state) => state.exerciseCustomBackgroundUri);
   const exerciseBackgroundImageSource = exerciseBackgroundImage
-    ? images.screenBgs[exerciseBackgroundImage as keyof typeof images.screenBgs]
+    ? exerciseBackgroundImage === "custom"
+      ? (exerciseCustomBackgroundUri ? { uri: exerciseCustomBackgroundUri } : null)
+      : images.screenBgs[exerciseBackgroundImage as keyof typeof images.screenBgs]
     : null;
 
   // Use custom settings if provided; otherwise check schedule overrides; else use main settings
@@ -342,6 +345,20 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
           resizeMode="cover"
         />
       )}
+      {/* Dark scrim over user-uploaded photo only: keeps overlay text readable on any image */}
+      {exerciseBackgroundImage === "custom" && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.45)",
+            zIndex: 2,
+          }}
+        />
+      )}
       <View 
         className="flex-1 flex-col justify-between"
         style={{
@@ -349,7 +366,7 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
           paddingBottom: insets.bottom,
           paddingLeft: insets.left,
           paddingRight: insets.right,
-          zIndex: 2,
+          zIndex: 3,
         }}
       >
         {status === "interlude" && (

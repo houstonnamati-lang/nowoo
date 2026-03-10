@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 2.6.0",
-    "promptToConfigurePushNotifications": false
+    "promptToConfigurePushNotifications": false,
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -11,12 +12,14 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "autoIncrement": true
+    }
   },
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "1454852966"
+        "ascAppId": "6760079482"
       }
     }
   }

@@ -371,7 +371,7 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
             textDecorationLine: "underline",
           }}
         >
-          Custom Session
+          Quick Breath
         </Text>
       </Pressable>
       <StreakModal

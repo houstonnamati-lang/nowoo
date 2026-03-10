@@ -1,8 +1,28 @@
-import React, { FC } from "react";
-import { View, Text, Pressable, Image, ScrollView, ImageSourcePropType } from "react-native";
+import React, { FC, useState } from "react";
+import { View, Text, Pressable, Image, ScrollView, ImageSourcePropType, Alert } from "react-native";
 import { useColorScheme } from "nativewind";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as FileSystem from "expo-file-system/legacy";
 import { images } from "@nowoo/assets/images";
+
+// Lazy-load so app doesn't crash in Expo Go / before native rebuild if module is missing
+async function pickImageFromLibrary(): Promise<string | null> {
+  const ImagePicker = await import("expo-image-picker");
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    Alert.alert("Permission needed", "Allow access to your photos to choose a background image.");
+    return null;
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    allowsEditing: false,
+    quality: 0.9,
+  });
+  if (result.canceled || !result.assets?.[0]?.uri) return null;
+  return result.assets[0].uri;
+}
+
+const CUSTOM_BG_FILENAME = "custom-exercise-bg.jpg";
 
 // Limited to 5 options that keep timer and positive word readable (good contrast).
 export const BACKGROUND_COLORS = [
@@ -71,6 +91,9 @@ interface BackgroundPickerProps {
   onBackgroundColorChange: (color: string) => void;
   backgroundImage: string | null;
   onBackgroundImageChange: (image: string | null) => void;
+  /** When user picks a custom image we store URI here; show as last option thumbnail */
+  customImageUri: string | null;
+  onCustomImagePicked: (uri: string) => void;
 }
 
 export const BackgroundPicker: FC<BackgroundPickerProps> = ({
@@ -78,12 +101,43 @@ export const BackgroundPicker: FC<BackgroundPickerProps> = ({
   onBackgroundColorChange,
   backgroundImage,
   onBackgroundImageChange,
+  customImageUri,
+  onCustomImagePicked,
 }) => {
   const { colorScheme } = useColorScheme();
   const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
   const secondaryTextColor = colorScheme === "dark" ? "#999999" : "#666666";
   const bgColor = colorScheme === "dark" ? "#1c1c1e" : "#ffffff";
   const borderColor = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
+  const [picking, setPicking] = useState(false);
+
+  const handleUploadOwn = async () => {
+    if (picking) return;
+    setPicking(true);
+    try {
+      const uri = await pickImageFromLibrary();
+      if (!uri) {
+        setPicking(false);
+        return;
+      }
+      const destUri = `${FileSystem.documentDirectory}${CUSTOM_BG_FILENAME}`;
+      await FileSystem.copyAsync({ from: uri, to: destUri });
+      onCustomImagePicked(destUri);
+      onBackgroundImageChange("custom");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("ExponentImagePicker") || msg.includes("native module")) {
+        Alert.alert(
+          "Rebuild required",
+          "Custom background requires a development build. Run: npx expo run:ios or npx expo run:android (or create an EAS development build). It does not work in Expo Go."
+        );
+      } else {
+        Alert.alert("Error", "Could not save the image. Try another photo.");
+      }
+    } finally {
+      setPicking(false);
+    }
+  };
 
   return (
     <View>
@@ -249,6 +303,60 @@ export const BackgroundPicker: FC<BackgroundPickerProps> = ({
                 </Pressable>
               );
             })}
+            {/* Upload your own — last option */}
+            <Pressable
+              onPress={handleUploadOwn}
+              disabled={picking}
+              style={{ alignItems: "center", maxWidth: 88 }}
+            >
+              <View
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 12,
+                  borderWidth: backgroundImage === "custom" ? 3 : 2,
+                  borderColor: backgroundImage === "custom" ? textColor : borderColor,
+                  overflow: "hidden",
+                  backgroundColor: borderColor,
+                }}
+              >
+                {customImageUri ? (
+                  <Image
+                    source={{ uri: customImageUri }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: borderColor,
+                    }}
+                  >
+                    <Ionicons
+                      name={picking ? "sync" : "cloud-upload"}
+                      size={32}
+                      color={secondaryTextColor}
+                    />
+                  </View>
+                )}
+              </View>
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  color: textColor,
+                  fontWeight: backgroundImage === "custom" ? "600" : "400",
+                  textAlign: "center",
+                }}
+                numberOfLines={2}
+              >
+                Upload{"\n"}your own
+              </Text>
+            </Pressable>
           </View>
         </ScrollView>
       </View>

@@ -3,13 +3,13 @@
     "name": "NoWoo",
     "slug": "nowoo",
     "scheme": "com.nowoo.app",
-    "version": "2.1.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/ios-icon.png",
-      "resizeMode": "cover",
+      "resizeMode": "contain",
       "backgroundColor": "#2d3748"
     },
     "assetBundlePatterns": [
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/ios-icon.png",
-      "buildNumber": "17",
+      "buildNumber": "1",
       "bundleIdentifier": "com.nowoo.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -67,11 +67,19 @@
         }
       ],
       "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NoWoo to access your photos to choose a background image."
+        }
+      ],
       "expo-font",
       [
         "expo-notifications",
         {
-          "sounds": ["./assets/audio/cuebell1.mp3"]
+          "sounds": [
+            "./assets/audio/cuebell1.mp3"
+          ]
         }
       ],
       [

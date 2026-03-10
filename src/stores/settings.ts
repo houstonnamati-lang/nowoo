@@ -125,8 +125,10 @@ interface SettingsStore {
   setScheduleRestoreBackgroundImage: (image: string | null) => unknown;
   exerciseBackgroundColor: string; // Hex color for exercise screen background
   setExerciseBackgroundColor: (color: string) => unknown;
-  exerciseBackgroundImage: string | null; // Image key from images.screenBgs, null for no image
+  exerciseBackgroundImage: string | null; // Image key from images.screenBgs, or "custom" for user upload
   setExerciseBackgroundImage: (image: string | null) => unknown;
+  exerciseCustomBackgroundUri: string | null; // When exerciseBackgroundImage === "custom", this is the image URI
+  setExerciseCustomBackgroundUri: (uri: string | null) => unknown;
   exerciseAnimationColor: string; // Hex color for breathing animation circle (default)
   setExerciseAnimationColor: (color: string) => unknown;
   customPatterns: PatternPreset[];
@@ -268,6 +270,8 @@ export const useSettingsStore = create<SettingsStore>()(
         setExerciseBackgroundColor: (color) => set({ exerciseBackgroundColor: color }),
         exerciseBackgroundImage: null,
         setExerciseBackgroundImage: (image) => set({ exerciseBackgroundImage: image }),
+        exerciseCustomBackgroundUri: null,
+        setExerciseCustomBackgroundUri: (uri) => set({ exerciseCustomBackgroundUri: uri }),
         exerciseAnimationColor: colors.pastel.orange,
         setExerciseAnimationColor: (color) => set({ exerciseAnimationColor: color }),
         customPatterns: [],
@@ -396,6 +400,8 @@ export const useSettingsStore = create<SettingsStore>()(
             persistedState.scheduleResetVibrationStrength = null;
           if (persistedState?.scheduleRestoreVibrationStrength === undefined)
             persistedState.scheduleRestoreVibrationStrength = null;
+          if (persistedState?.exerciseCustomBackgroundUri === undefined)
+            persistedState.exerciseCustomBackgroundUri = null;
           return persistedState;
         },
         version: 8,

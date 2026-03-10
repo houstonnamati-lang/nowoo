@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useSettingsStore } from "@nowoo/stores/settings";
 import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
+import { isDarkBackground } from "@nowoo/utils/is-dark-background";
 
 /** When true (custom session with useDefaults), always use main exercise background, never schedule overrides. */
 export const UseDefaultSettingsContext = React.createContext(false);
@@ -10,10 +11,12 @@ export const UseDefaultSettingsContext = React.createContext(false);
  * When useDefaultSettings (custom session with use defaults) is true, uses main exercise background.
  * Otherwise, when the current time falls in a Rise/Reset/Restore window and that schedule
  * has background overrides, those are used; else the main exercise background.
+ * useLightText: when true, overlay text should be light (for contrast). Always true for custom upload so text is readable on any photo.
  */
 export function useEffectiveExerciseBackground(): {
   backgroundColor: string;
   backgroundImage: string | null;
+  useLightText: boolean;
 } {
   const useDefaultSettings = React.useContext(UseDefaultSettingsContext);
   const scheduleRiseStartTime = useSettingsStore((state) => state.scheduleRiseStartTime);
@@ -32,11 +35,13 @@ export function useEffectiveExerciseBackground(): {
   const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
 
   return useMemo(() => {
+    const base = (bgColor: string, bgImage: string | null) => ({
+      backgroundColor: bgColor,
+      backgroundImage: bgImage,
+      useLightText: bgImage === "custom" ? true : isDarkBackground(bgColor),
+    });
     if (useDefaultSettings) {
-      return {
-        backgroundColor: exerciseBackgroundColor,
-        backgroundImage: exerciseBackgroundImage,
-      };
+      return base(exerciseBackgroundColor, exerciseBackgroundImage);
     }
     const activeCategory = getActiveScheduleCategory(
       scheduleRiseStartTime,
@@ -47,27 +52,15 @@ export function useEffectiveExerciseBackground(): {
       scheduleRestoreEndTime
     );
     if (activeCategory === "rise" && scheduleRiseBackgroundColor != null) {
-      return {
-        backgroundColor: scheduleRiseBackgroundColor,
-        backgroundImage: scheduleRiseBackgroundImage,
-      };
+      return base(scheduleRiseBackgroundColor, scheduleRiseBackgroundImage);
     }
     if (activeCategory === "reset" && scheduleResetBackgroundColor != null) {
-      return {
-        backgroundColor: scheduleResetBackgroundColor,
-        backgroundImage: scheduleResetBackgroundImage,
-      };
+      return base(scheduleResetBackgroundColor, scheduleResetBackgroundImage);
     }
     if (activeCategory === "restore" && scheduleRestoreBackgroundColor != null) {
-      return {
-        backgroundColor: scheduleRestoreBackgroundColor,
-        backgroundImage: scheduleRestoreBackgroundImage,
-      };
+      return base(scheduleRestoreBackgroundColor, scheduleRestoreBackgroundImage);
     }
-    return {
-      backgroundColor: exerciseBackgroundColor,
-      backgroundImage: exerciseBackgroundImage,
-    };
+    return base(exerciseBackgroundColor, exerciseBackgroundImage);
   }, [
     useDefaultSettings,
     exerciseBackgroundColor,

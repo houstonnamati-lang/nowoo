@@ -1,7 +1,6 @@
 import React, { FC } from "react";
 import { Animated } from "react-native";
 import { interpolateTranslateY } from "@nowoo/utils/interpolate";
-import { isDarkBackground } from "@nowoo/utils/is-dark-background";
 import { useEffectiveExerciseBackground } from "./use-effective-exercise-background";
 
 interface Props {
@@ -10,8 +9,7 @@ interface Props {
 }
 
 export const StepDescription: FC<Props> = ({ label, animationValue }) => {
-  const { backgroundColor } = useEffectiveExerciseBackground();
-  const useLightText = isDarkBackground(backgroundColor);
+  const { useLightText } = useEffectiveExerciseBackground();
 
   const textAnimatedStyle = {
     opacity: animationValue.interpolate({

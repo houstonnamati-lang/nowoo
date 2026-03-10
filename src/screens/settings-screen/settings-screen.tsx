@@ -404,6 +404,8 @@ export const SettingsRootScreen: FC<
   const setExerciseBackgroundColor = useSettingsStore((state) => state.setExerciseBackgroundColor);
   const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
   const setExerciseBackgroundImage = useSettingsStore((state) => state.setExerciseBackgroundImage);
+  const exerciseCustomBackgroundUri = useSettingsStore((state) => state.exerciseCustomBackgroundUri);
+  const setExerciseCustomBackgroundUri = useSettingsStore((state) => state.setExerciseCustomBackgroundUri);
   const exerciseAnimationColor = useSettingsStore((state) => state.exerciseAnimationColor);
   const setExerciseAnimationColor = useSettingsStore((state) => state.setExerciseAnimationColor);
   const timeLimit = useSettingsStore((state) => state.timeLimit);
@@ -592,27 +594,29 @@ export const SettingsRootScreen: FC<
               />
             </SettingsUI.Section>
           )}
-          <SettingsUI.Section label="Development">
-            <SettingsUI.LinkItem
-              label="Reset Authentication"
-              iconName="refresh"
-              iconBackgroundColor="#ef4444"
-              value=""
-              onPress={async () => {
-                const { resetAuth } = useAuthStore.getState();
-                const { signOut } = await import("firebase/auth");
-                const { getFirebaseAuth } = await import("@nowoo/config/firebase");
-                try {
-                  const auth = getFirebaseAuth();
-                  await signOut(auth);
-                } catch (e) {
-                  // Ignore sign out errors
-                }
-                resetAuth();
-                Alert.alert("Auth Reset", "Authentication state has been reset. Please restart the app.");
-              }}
-            />
-          </SettingsUI.Section>
+          {__DEV__ && (
+            <SettingsUI.Section label="Development">
+              <SettingsUI.LinkItem
+                label="Reset Authentication"
+                iconName="refresh"
+                iconBackgroundColor="#ef4444"
+                value=""
+                onPress={async () => {
+                  const { resetAuth } = useAuthStore.getState();
+                  const { signOut } = await import("firebase/auth");
+                  const { getFirebaseAuth } = await import("@nowoo/config/firebase");
+                  try {
+                    const auth = getFirebaseAuth();
+                    await signOut(auth);
+                  } catch (e) {
+                    // Ignore sign out errors
+                  }
+                  resetAuth();
+                  Alert.alert("Auth Reset", "Authentication state has been reset. Please restart the app.");
+                }}
+              />
+            </SettingsUI.Section>
+          )}
         </ScrollView>
 
         <Modal
@@ -820,6 +824,11 @@ export const SettingsRootScreen: FC<
                     onBackgroundColorChange={setExerciseBackgroundColor}
                     backgroundImage={exerciseBackgroundImage}
                     onBackgroundImageChange={setExerciseBackgroundImage}
+                    customImageUri={exerciseCustomBackgroundUri}
+                    onCustomImagePicked={(uri) => {
+                      setExerciseCustomBackgroundUri(uri);
+                      setExerciseBackgroundImage("custom");
+                    }}
                   />
                 </SettingsUI.Section>
               )}
@@ -864,6 +873,8 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
   const setExerciseBackgroundColor = useSettingsStore((state) => state.setExerciseBackgroundColor);
   const exerciseBackgroundImage = useSettingsStore((state) => state.exerciseBackgroundImage);
   const setExerciseBackgroundImage = useSettingsStore((state) => state.setExerciseBackgroundImage);
+  const exerciseCustomBackgroundUri = useSettingsStore((state) => state.exerciseCustomBackgroundUri);
+  const setExerciseCustomBackgroundUri = useSettingsStore((state) => state.setExerciseCustomBackgroundUri);
   const vibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const setVibrationEnabled = useSettingsStore((state) => state.setVibrationEnabled);
   const vibrationStrength = useSettingsStore((state) => state.vibrationStrength);
@@ -976,6 +987,11 @@ export const SettingsDefaultSettingsScreen: FC<DefaultSettingsScreenProps> = () 
             onBackgroundColorChange={setExerciseBackgroundColor}
             backgroundImage={exerciseBackgroundImage}
             onBackgroundImageChange={setExerciseBackgroundImage}
+            customImageUri={exerciseCustomBackgroundUri}
+            onCustomImagePicked={(uri) => {
+              setExerciseCustomBackgroundUri(uri);
+              setExerciseBackgroundImage("custom");
+            }}
           />
         </SettingsUI.Section>
         <SettingsUI.Section label="Haptics">
@@ -1290,6 +1306,8 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const setScheduleRiseBackgroundColor = useSettingsStore((state) => state.setScheduleRiseBackgroundColor);
   const scheduleRiseBackgroundImage = useSettingsStore((state) => state.scheduleRiseBackgroundImage);
   const setScheduleRiseBackgroundImage = useSettingsStore((state) => state.setScheduleRiseBackgroundImage);
+  const exerciseCustomBackgroundUri = useSettingsStore((state) => state.exerciseCustomBackgroundUri);
+  const setExerciseCustomBackgroundUri = useSettingsStore((state) => state.setExerciseCustomBackgroundUri);
   const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
   const noiseBed = useSettingsStore((state) => state.noiseBed);
   const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
@@ -1636,6 +1654,11 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
                 onBackgroundColorChange={setScheduleRiseBackgroundColor}
                 backgroundImage={scheduleRiseBackgroundImage}
                 onBackgroundImageChange={setScheduleRiseBackgroundImage}
+                customImageUri={exerciseCustomBackgroundUri}
+                onCustomImagePicked={(uri) => {
+                  setExerciseCustomBackgroundUri(uri);
+                  setScheduleRiseBackgroundImage("custom");
+                }}
               />
             )}
           </SettingsUI.Section>
@@ -1679,6 +1702,8 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const setScheduleResetBackgroundColor = useSettingsStore((state) => state.setScheduleResetBackgroundColor);
   const scheduleResetBackgroundImage = useSettingsStore((state) => state.scheduleResetBackgroundImage);
   const setScheduleResetBackgroundImage = useSettingsStore((state) => state.setScheduleResetBackgroundImage);
+  const exerciseCustomBackgroundUri = useSettingsStore((state) => state.exerciseCustomBackgroundUri);
+  const setExerciseCustomBackgroundUri = useSettingsStore((state) => state.setExerciseCustomBackgroundUri);
   const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
   const noiseBed = useSettingsStore((state) => state.noiseBed);
   const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
@@ -2025,6 +2050,11 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
                 onBackgroundColorChange={setScheduleResetBackgroundColor}
                 backgroundImage={scheduleResetBackgroundImage}
                 onBackgroundImageChange={setScheduleResetBackgroundImage}
+                customImageUri={exerciseCustomBackgroundUri}
+                onCustomImagePicked={(uri) => {
+                  setExerciseCustomBackgroundUri(uri);
+                  setScheduleResetBackgroundImage("custom");
+                }}
               />
             )}
           </SettingsUI.Section>
@@ -2068,6 +2098,8 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const setScheduleRestoreBackgroundColor = useSettingsStore((state) => state.setScheduleRestoreBackgroundColor);
   const scheduleRestoreBackgroundImage = useSettingsStore((state) => state.scheduleRestoreBackgroundImage);
   const setScheduleRestoreBackgroundImage = useSettingsStore((state) => state.setScheduleRestoreBackgroundImage);
+  const exerciseCustomBackgroundUri = useSettingsStore((state) => state.exerciseCustomBackgroundUri);
+  const setExerciseCustomBackgroundUri = useSettingsStore((state) => state.setExerciseCustomBackgroundUri);
   const calmingFrequency = useSettingsStore((state) => state.calmingFrequency);
   const noiseBed = useSettingsStore((state) => state.noiseBed);
   const defaultVoiceVolume = useSettingsStore((state) => state.defaultVoiceVolume);
@@ -2414,6 +2446,11 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
                 onBackgroundColorChange={setScheduleRestoreBackgroundColor}
                 backgroundImage={scheduleRestoreBackgroundImage}
                 onBackgroundImageChange={setScheduleRestoreBackgroundImage}
+                customImageUri={exerciseCustomBackgroundUri}
+                onCustomImagePicked={(uri) => {
+                  setExerciseCustomBackgroundUri(uri);
+                  setScheduleRestoreBackgroundImage("custom");
+                }}
               />
             )}
           </SettingsUI.Section>
