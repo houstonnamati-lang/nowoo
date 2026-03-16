@@ -49,8 +49,8 @@ export const useExerciseHaptics = (
     if (stepId === "inhale") {
           if (Platform.OS === "ios") {
         // Start with quick pulses, gradually slow down as inhale progresses
-        const startInterval = 100; // Start with 100ms intervals (fast)
-        const endInterval = 400; // End with 400ms intervals (slow)
+        const startInterval = 50; // Start with 50ms intervals (fast)
+        const endInterval = 300; // End with 300ms intervals (slow)
         const startTime = Date.now();
         
         Haptics.impactAsync(impactStyle);
@@ -86,8 +86,8 @@ export const useExerciseHaptics = (
           } else if (Platform.OS === "android") {
         // For Android, create a pattern that starts dense and gets sparser
         // We'll use a series of vibrations with increasing gaps
-        const startInterval = 100;
-        const endInterval = 400;
+        const startInterval = 50;
+        const endInterval = 300;
         const startTime = Date.now();
         const pattern: number[] = [0]; // Start immediately
         
@@ -119,9 +119,9 @@ export const useExerciseHaptics = (
     // Pulse pattern for hold - continues for entire hold duration
     else if (stepId === "afterInhale" || stepId === "afterExhale") {
       if (Platform.OS === "ios") {
-        // Pulse every 400ms throughout the hold duration (use Light-style for hold; or use impactStyle)
+        // Pulse every 700ms throughout the hold duration (use Light-style for hold; or use impactStyle)
         const holdStyle = vibrationStrength <= 0.5 ? Haptics.ImpactFeedbackStyle.Soft : Haptics.ImpactFeedbackStyle.Light;
-        const pulseInterval = 400;
+        const pulseInterval = 700;
         const numPulses = Math.floor(duration / pulseInterval);
         
         Haptics.impactAsync(holdStyle);
@@ -138,9 +138,10 @@ export const useExerciseHaptics = (
           }
         }, pulseInterval);
       } else if (Platform.OS === "android") {
-        // Repeating pulse pattern: vibrate, pause 200ms, repeat (scale vibrate by strength)
+        // Repeating pulse pattern: ~700ms between pulse starts (vibrate, then pause)
         const vibrateMs = Math.max(50, Math.round(200 * vibrationStrength));
-        const pulsePattern = [0, vibrateMs, 200, vibrateMs];
+        const pauseMs = Math.max(100, 700 - vibrateMs);
+        const pulsePattern = [0, vibrateMs, pauseMs, vibrateMs];
         const repeatIndex = -1; // -1 means repeat the pattern
         Vibration.vibrate(pulsePattern, repeatIndex);
         // Stop after the duration

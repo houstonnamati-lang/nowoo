@@ -361,14 +361,40 @@ export const HomeScreen: FC<NativeStackScreenProps<RootStackParamList, "Home">> 
           position: "absolute",
           bottom: insets.bottom + 16,
           right: insets.right + 16,
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderRadius: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colorScheme === "dark"
+            ? "rgba(255, 255, 255, 0.1)"
+            : "rgba(255, 255, 255, 0.95)",
+          borderWidth: 1,
+          borderColor: colorScheme === "dark"
+            ? "rgba(255, 255, 255, 0.2)"
+            : "rgba(15, 23, 42, 0.12)",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
+          elevation: 3,
         }}
         onPress={handleCustomSessionPress}
       >
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            marginRight: 6,
+            backgroundColor: colorScheme === "dark" ? "#e5e7eb" : "#64748b",
+          }}
+        />
         <Text
           style={{
-            fontSize: 14,
-            color: colorScheme === "dark" ? "#f5f5f5" : "#000000",
-            textDecorationLine: "underline",
+            fontSize: 13,
+            fontWeight: "600",
+            color: colorScheme === "dark" ? "#e5e7eb" : "#020617",
           }}
         >
           Quick Breath

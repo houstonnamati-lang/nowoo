@@ -1,4 +1,5 @@
 import { Audio } from "expo-av";
+import { AudioContext } from "react-native-audio-api";
 import { sounds } from "@nowoo/assets/sounds";
 import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
 
@@ -16,12 +17,19 @@ const noiseAssets: Record<Exclude<NoiseBedMode, "disabled">, any> = {
   pink: sounds.pinkNoise,
 };
 
+const audioContext = new AudioContext();
+
 // Picker mode: user-selected tone and/or noise
 let pickerToneSound: Audio.Sound | undefined;
 let pickerNoiseSound: Audio.Sound | undefined;
 let pickerPlaying = false;
 let pickerToneTargetVolume = 0.6;
 let pickerNoiseTargetVolume = 0.3;
+
+// Synthesized tone (gapless) for 100/136/200 Hz using Web Audio–style API
+let pickerToneOscillator: any | undefined;
+let pickerToneGainNode: any | undefined;
+let pickerCalmingFrequency: CalmingFrequencyMode = "disabled";
 
 // Schedule: tone + noise (Rise/Reset/Restore defaults)
 let scheduleToneSound: Audio.Sound | undefined;
@@ -45,6 +53,19 @@ export function setToneVolumeMultiplier(multiplier: number) {
   toneVolumeMultiplier = Math.max(0, Math.min(1, multiplier));
   if (pickerToneSound && pickerPlaying) {
     pickerToneSound.setVolumeAsync(pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
+  }
+  if (pickerToneGainNode && pickerPlaying) {
+    try {
+      const target = pickerToneTargetVolume * toneVolumeMultiplier;
+      const now = audioContext.currentTime;
+      const gain = pickerToneGainNode.gain;
+      gain.cancelScheduledValues(now);
+      // Smoothly move to new level over 100 ms
+      gain.setValueAtTime(gain.value ?? target, now);
+      gain.linearRampToValueAtTime(target, now + 0.1);
+    } catch {
+      // ignore gain scheduling errors
+    }
   }
   if (pickerNoiseSound && pickerPlaying) {
     pickerNoiseSound.setVolumeAsync(pickerNoiseTargetVolume * toneVolumeMultiplier).catch(() => {});
@@ -78,6 +99,7 @@ export async function setupPickerBackground(
   noiseBed: NoiseBedMode
 ) {
   await releasePickerBackground();
+  pickerCalmingFrequency = calmingFrequency;
   const hasTone = calmingFrequency !== "disabled";
   const hasNoise = noiseBed !== "disabled";
   if (!hasTone && !hasNoise) return;
@@ -85,12 +107,7 @@ export async function setupPickerBackground(
   try {
     if (hasTone) {
       pickerToneTargetVolume = calmingFrequency === "100hz" ? TONE_VOLUME_100HZ : TONE_VOLUME;
-      const { sound } = await Audio.Sound.createAsync(toneAssets[calmingFrequency], {
-        shouldPlay: false,
-        isLooping: true,
-        volume: pickerToneTargetVolume,
-      });
-      pickerToneSound = sound;
+      // Tone audio is synthesized via oscillator when starting playback.
     }
     if (hasNoise) {
       pickerNoiseTargetVolume = 0.3;
@@ -121,7 +138,32 @@ export async function startPickerBackground(options?: { quickFade?: boolean }) {
       if (i < steps) await new Promise((r) => setTimeout(r, stepMs));
     }
   };
-  if (pickerToneSound) {
+  if (pickerCalmingFrequency !== "disabled") {
+    try {
+      pickerToneOscillator = audioContext.createOscillator();
+      pickerToneOscillator.type = "sine";
+      // Map guided frequencies
+      const freq =
+        pickerCalmingFrequency === "200hz"
+          ? 200
+          : pickerCalmingFrequency === "136hz"
+          ? 136
+          : 100;
+      pickerToneOscillator.frequency.value = freq;
+      pickerToneGainNode = audioContext.createGain();
+      const target = pickerToneTargetVolume * toneVolumeMultiplier;
+      const now = audioContext.currentTime;
+      const gain = pickerToneGainNode.gain;
+      gain.cancelScheduledValues(now);
+      // Start at 0 to avoid click, then fade in over ~150 ms
+      gain.setValueAtTime(0, now);
+      gain.linearRampToValueAtTime(target, now + 0.15);
+      pickerToneOscillator.connect(pickerToneGainNode).connect(audioContext.destination);
+      pickerToneOscillator.start();
+    } catch (e) {
+      // Fallback: if oscillator fails, do nothing special; user still has noise beds, etc.
+    }
+  } else if (pickerToneSound) {
     await pickerToneSound.setVolumeAsync(0);
     await pickerToneSound.playAsync();
     runFade(pickerToneSound, pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
@@ -139,6 +181,30 @@ export async function stopPickerBackground() {
   if (pickerToneSound) {
     await fadeVolume(pickerToneSound, pickerToneTargetVolume * toneVolumeMultiplier, 0);
     await pickerToneSound.pauseAsync();
+  }
+  if (pickerToneOscillator) {
+    try {
+      // Fade out over ~150 ms to avoid click, then stop/disconnect
+      if (pickerToneGainNode) {
+        const now = audioContext.currentTime;
+        const gain = pickerToneGainNode.gain;
+        gain.cancelScheduledValues(now);
+        gain.setValueAtTime(gain.value ?? 0, now);
+        gain.linearRampToValueAtTime(0, now + 0.15);
+      }
+      setTimeout(() => {
+        try {
+          pickerToneOscillator?.stop();
+          pickerToneOscillator?.disconnect();
+        } catch {
+          // ignore
+        }
+      }, 170);
+    } catch {
+      // ignore
+    }
+    pickerToneOscillator = undefined;
+    pickerToneGainNode = undefined;
   }
   if (pickerNoiseSound) {
     await fadeVolume(pickerNoiseSound, pickerNoiseTargetVolume * toneVolumeMultiplier, 0);

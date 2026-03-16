@@ -169,7 +169,7 @@ export const useSettingsStore = create<SettingsStore>()(
         setCalmingFrequency: (calmingFrequency) => set({ calmingFrequency }),
         noiseBed: "disabled",
         setNoiseBed: (noiseBed) => set({ noiseBed }),
-        timeLimit: ms("5 min"),
+        timeLimit: ms("1 min"),
         setTimeLimit: (timeLimit) => set({ timeLimit }),
         increaseTimeLimit: () => set({ timeLimit: get().timeLimit + ms("1 min") }),
         decreaseTimeLimit: () => set({ timeLimit: get().timeLimit - ms("1 min") }),
@@ -400,6 +400,10 @@ export const useSettingsStore = create<SettingsStore>()(
             persistedState.scheduleResetVibrationStrength = null;
           if (persistedState?.scheduleRestoreVibrationStrength === undefined)
             persistedState.scheduleRestoreVibrationStrength = null;
+          // Default main exercise / Quick Breath time limit to 1 minute when never configured
+          if (persistedState?.timeLimit == null) {
+            persistedState.timeLimit = ms("1 min");
+          }
           if (persistedState?.exerciseCustomBackgroundUri === undefined)
             persistedState.exerciseCustomBackgroundUri = null;
           return persistedState;
