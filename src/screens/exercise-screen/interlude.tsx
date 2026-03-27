@@ -13,6 +13,7 @@ interface Props {
 
 const interludeInitialDelay = 600;
 const interludeAnimDuration = 400;
+const maxAudioWaitMs = 2000;
 
 export const ExerciseInterlude: FC<Props> = ({ onComplete, onCountdownStart, whenAudioReady }) => {
   const isMountedRef = useRef(true);
@@ -32,7 +33,12 @@ export const ExerciseInterlude: FC<Props> = ({ onComplete, onCountdownStart, whe
 
   const animateInterlude = async () => {
     await delay(interludeInitialDelay);
-    await whenAudioReady?.();
+    // Guard against iPad-specific audio preload stalls: proceed after a short timeout.
+    try {
+      await Promise.race([whenAudioReady?.() ?? Promise.resolve(), delay(maxAudioWaitMs)]);
+    } catch (error) {
+      console.warn("[interlude] Continuing after audio readiness failure:", error);
+    }
     onCountdownStart?.();
     showSubtitleAnimation.start(async ({ finished }) => {
       if (!finished) return;

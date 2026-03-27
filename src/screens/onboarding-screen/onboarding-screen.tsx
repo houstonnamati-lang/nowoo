@@ -1,5 +1,13 @@
 import React, { FC, useState } from "react";
-import { View, Text, TextInput, Alert, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+} from "react-native";
 import { useColorScheme } from "nativewind";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -16,6 +24,7 @@ import {
 } from "firebase/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { LegalDocumentLinks } from "@nowoo/common/legal-document-links";
 
 type OnboardingScreenProps = NativeStackScreenProps<RootStackParamList, "Onboarding">;
 
@@ -146,15 +155,20 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
     }
   };
 
+  const linkColor = colorScheme === "dark" ? "#5e9eff" : "#2563eb";
+  const mutedLegal = colorScheme === "dark" ? "#666666" : "#94a3b8";
+
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: bgColor,
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          padding: 24,
+          paddingBottom: 32,
+        }}
+      >
       <Text
         style={{
           fontSize: 32,
@@ -315,6 +329,13 @@ export const OnboardingScreen: FC<OnboardingScreenProps> = ({ navigation }) => {
           </Text>
         </Pressable>
       </View>
+
+      <LegalDocumentLinks
+        mutedColor={mutedLegal}
+        linkColor={linkColor}
+        style={{ marginTop: 20 }}
+      />
+      </ScrollView>
     </View>
   );
 };

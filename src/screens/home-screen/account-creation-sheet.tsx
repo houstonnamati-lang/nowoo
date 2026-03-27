@@ -28,6 +28,7 @@ import {
   OAuthProvider,
   GoogleAuthProvider,
 } from "firebase/auth";
+import { LegalDocumentLinks } from "@nowoo/common/legal-document-links";
 
 interface AccountCreationSheetProps {
   visible: boolean;
@@ -319,6 +320,11 @@ export const AccountCreationSheet: FC<AccountCreationSheetProps> = ({
               </Text>
             </Pressable>
           </ScrollView>
+          <LegalDocumentLinks
+            mutedColor={colorScheme === "dark" ? "#666666" : "#94a3b8"}
+            linkColor={colorScheme === "dark" ? "#5e9eff" : "#2563eb"}
+            style={{ marginTop: 16 }}
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>

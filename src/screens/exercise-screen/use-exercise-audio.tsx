@@ -18,7 +18,10 @@ export const useExerciseAudio = (guidedBreathingVoice: GuidedBreathingMode) => {
       readyPromiseRef.current = Promise.resolve();
       return () => {};
     }
-    readyPromiseRef.current = setupGuidedBreathingAudio(guidedBreathingVoice);
+    // Never block exercise start on audio preload failures.
+    readyPromiseRef.current = setupGuidedBreathingAudio(guidedBreathingVoice).catch((error) => {
+      console.warn("[exercise-audio] Guided breathing preload failed:", error);
+    });
     return () => {
       releaseGuidedBreathingAudio();
     };

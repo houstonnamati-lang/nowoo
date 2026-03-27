@@ -16,7 +16,7 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "icon": "./assets/ios-icon.png",
       "buildNumber": "1",
       "bundleIdentifier": "com.nowoo.app",

@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useKeepAwake } from "expo-keep-awake";
 import { useColorScheme } from "nativewind";
-import React, { FC, useMemo, useState } from "react";
+import React, { FC, useMemo, useRef, useState } from "react";
 import { Animated, Image, Modal, Switch, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Slider from "@react-native-community/slider";
@@ -312,14 +312,21 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
   };
 
   const incrementStreak = useStreakStore((state) => state.incrementStreak);
+  const didCountSessionRef = useRef(false);
+  const isQuickBreathSession = !customSettings && scheduleCategoryForAudio == null;
+
+  const markSessionCompleted = () => {
+    if (didCountSessionRef.current) return;
+    didCountSessionRef.current = true;
+    // Count any completed session toward activity and streak once per run.
+    recordActivity();
+    incrementStreak();
+  };
 
   const handleTimeLimitReached = () => {
     playExerciseCompletedAudio();
     setStatus("completed");
-    // Record activity when exercise completes
-    recordActivity();
-    // Increment streak
-    incrementStreak();
+    markSessionCompleted();
   };
 
   return (
@@ -570,6 +577,11 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
               className="rounded-xl py-3"
               style={{ backgroundColor: colorScheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
               onPress={() => {
+                if (status === "running" && isQuickBreathSession) {
+                  // Quick Breath users often end manually before timer completion.
+                  // Count this as a completed practice for streak purposes.
+                  markSessionCompleted();
+                }
                 setShowPauseDialog(false);
                 setIsPaused(false);
                 navigation.goBack();

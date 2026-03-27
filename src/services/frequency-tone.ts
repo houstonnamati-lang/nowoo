@@ -17,7 +17,23 @@ const noiseAssets: Record<Exclude<NoiseBedMode, "disabled">, any> = {
   pink: sounds.pinkNoise,
 };
 
-const audioContext = new AudioContext();
+/** Lazy init: creating AudioContext at module load can crash on some devices (e.g. certain iPads). */
+let audioContextInstance: InstanceType<typeof AudioContext> | null = null;
+let audioContextInitFailed = false;
+
+function getAudioContext(): InstanceType<typeof AudioContext> | null {
+  if (audioContextInitFailed) return null;
+  if (audioContextInstance == null) {
+    try {
+      audioContextInstance = new AudioContext();
+    } catch (e) {
+      console.warn("[frequency-tone] AudioContext unavailable:", e);
+      audioContextInitFailed = true;
+      return null;
+    }
+  }
+  return audioContextInstance;
+}
 
 // Picker mode: user-selected tone and/or noise
 let pickerToneSound: Audio.Sound | undefined;
@@ -55,16 +71,19 @@ export function setToneVolumeMultiplier(multiplier: number) {
     pickerToneSound.setVolumeAsync(pickerToneTargetVolume * toneVolumeMultiplier).catch(() => {});
   }
   if (pickerToneGainNode && pickerPlaying) {
-    try {
-      const target = pickerToneTargetVolume * toneVolumeMultiplier;
-      const now = audioContext.currentTime;
-      const gain = pickerToneGainNode.gain;
-      gain.cancelScheduledValues(now);
-      // Smoothly move to new level over 100 ms
-      gain.setValueAtTime(gain.value ?? target, now);
-      gain.linearRampToValueAtTime(target, now + 0.1);
-    } catch {
-      // ignore gain scheduling errors
+    const ctx = getAudioContext();
+    if (ctx) {
+      try {
+        const target = pickerToneTargetVolume * toneVolumeMultiplier;
+        const now = ctx.currentTime;
+        const gain = pickerToneGainNode.gain;
+        gain.cancelScheduledValues(now);
+        // Smoothly move to new level over 100 ms
+        gain.setValueAtTime(gain.value ?? target, now);
+        gain.linearRampToValueAtTime(target, now + 0.1);
+      } catch {
+        // ignore gain scheduling errors
+      }
     }
   }
   if (pickerNoiseSound && pickerPlaying) {
@@ -139,29 +158,32 @@ export async function startPickerBackground(options?: { quickFade?: boolean }) {
     }
   };
   if (pickerCalmingFrequency !== "disabled") {
-    try {
-      pickerToneOscillator = audioContext.createOscillator();
-      pickerToneOscillator.type = "sine";
-      // Map guided frequencies
-      const freq =
-        pickerCalmingFrequency === "200hz"
-          ? 200
-          : pickerCalmingFrequency === "136hz"
-          ? 136
-          : 100;
-      pickerToneOscillator.frequency.value = freq;
-      pickerToneGainNode = audioContext.createGain();
-      const target = pickerToneTargetVolume * toneVolumeMultiplier;
-      const now = audioContext.currentTime;
-      const gain = pickerToneGainNode.gain;
-      gain.cancelScheduledValues(now);
-      // Start at 0 to avoid click, then fade in over ~150 ms
-      gain.setValueAtTime(0, now);
-      gain.linearRampToValueAtTime(target, now + 0.15);
-      pickerToneOscillator.connect(pickerToneGainNode).connect(audioContext.destination);
-      pickerToneOscillator.start();
-    } catch (e) {
-      // Fallback: if oscillator fails, do nothing special; user still has noise beds, etc.
+    const ctx = getAudioContext();
+    if (ctx) {
+      try {
+        pickerToneOscillator = ctx.createOscillator();
+        pickerToneOscillator.type = "sine";
+        // Map guided frequencies
+        const freq =
+          pickerCalmingFrequency === "200hz"
+            ? 200
+            : pickerCalmingFrequency === "136hz"
+              ? 136
+              : 100;
+        pickerToneOscillator.frequency.value = freq;
+        pickerToneGainNode = ctx.createGain();
+        const target = pickerToneTargetVolume * toneVolumeMultiplier;
+        const now = ctx.currentTime;
+        const gain = pickerToneGainNode.gain;
+        gain.cancelScheduledValues(now);
+        // Start at 0 to avoid click, then fade in over ~150 ms
+        gain.setValueAtTime(0, now);
+        gain.linearRampToValueAtTime(target, now + 0.15);
+        pickerToneOscillator.connect(pickerToneGainNode).connect(ctx.destination);
+        pickerToneOscillator.start();
+      } catch {
+        // Fallback: if oscillator fails, do nothing special; user still has noise beds, etc.
+      }
     }
   } else if (pickerToneSound) {
     await pickerToneSound.setVolumeAsync(0);
@@ -186,11 +208,18 @@ export async function stopPickerBackground() {
     try {
       // Fade out over ~150 ms to avoid click, then stop/disconnect
       if (pickerToneGainNode) {
-        const now = audioContext.currentTime;
-        const gain = pickerToneGainNode.gain;
-        gain.cancelScheduledValues(now);
-        gain.setValueAtTime(gain.value ?? 0, now);
-        gain.linearRampToValueAtTime(0, now + 0.15);
+        const ctx = getAudioContext();
+        if (ctx) {
+          try {
+            const now = ctx.currentTime;
+            const gain = pickerToneGainNode.gain;
+            gain.cancelScheduledValues(now);
+            gain.setValueAtTime(gain.value ?? 0, now);
+            gain.linearRampToValueAtTime(0, now + 0.15);
+          } catch {
+            // ignore
+          }
+        }
       }
       setTimeout(() => {
         try {

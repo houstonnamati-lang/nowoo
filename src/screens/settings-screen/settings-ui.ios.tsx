@@ -1,5 +1,4 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Picker } from "@react-native-picker/picker";
 import { useColorScheme } from "nativewind";
 import React, { FC, PropsWithChildren, useState } from "react";
 import { LayoutAnimation, Switch, Text, TextInput, View, ViewStyle } from "react-native";
@@ -163,9 +162,6 @@ export const LinkItem: FC<LinkItemProps> = ({ value, onPress, ...baseProps }) =>
   );
 };
 
-const hasReactNodeLabels = (opts: { label: string | React.ReactNode; value: string }[]) =>
-  opts.some((o) => typeof o.label !== "string");
-
 export const PickerItem: FC<PickerItemProps> = ({
   value,
   options,
@@ -181,7 +177,7 @@ export const PickerItem: FC<PickerItemProps> = ({
   const selectedOption = options?.find((option) => option.value === value);
   const displayLabel = selectedOption?.label || value || "Unknown";
   const hasSelection = value && selectedOption;
-  const useCustomList = options && hasReactNodeLabels(options);
+  const useCustomList = true;
 
   return (
     <>
@@ -244,18 +240,6 @@ export const PickerItem: FC<PickerItemProps> = ({
             </Pressable>
           ))}
         </View>
-      )}
-      {expanded && options && !useCustomList && (
-        <Picker selectedValue={value} onValueChange={onValueChange}>
-          {options.map(({ label, value: optValue }) => (
-            <Picker.Item
-              key={optValue}
-              label={typeof label === "string" ? label : String(optValue)}
-              value={optValue}
-              color={colorScheme === "dark" ? "white" : undefined}
-            />
-          ))}
-        </Picker>
       )}
     </>
   );

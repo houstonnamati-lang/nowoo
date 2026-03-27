@@ -155,7 +155,7 @@ const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
   onAccountDeleted,
 }) => {
   const [displayNameInput, setDisplayNameInput] = useState("");
-  const [loading, setLoading] = useState<"password" | "name" | "delete" | null>(null);
+  const [loading, setLoading] = useState<"password" | "name" | "delete" | "signout" | null>(null);
   const textColor = colorScheme === "dark" ? "#ffffff" : "#000000";
   const inputBg = colorScheme === "dark" ? "#1c1c1e" : "#f5f5f5";
   const borderColor = colorScheme === "dark" ? "#38383a" : "#e7e5e4";
@@ -241,6 +241,20 @@ const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
         },
       ]
     );
+  };
+
+  const handleSignOut = async () => {
+    setLoading("signout");
+    try {
+      const auth = getFirebaseAuth();
+      await signOut(auth);
+    } catch {
+      // Ignore Firebase sign-out errors and clear local auth anyway.
+    } finally {
+      useAuthStore.getState().resetAuth();
+      setLoading(null);
+      onClose();
+    }
   };
 
   if (!user) return null;
@@ -349,29 +363,46 @@ const AccountBottomSheet: FC<AccountBottomSheetProps> = ({
               </Pressable>
             </View>
             <View style={{ marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, color: textColor, marginBottom: 6 }}>Delete account</Text>
+              <Text style={{ fontSize: 14, color: textColor, marginBottom: 6 }}>Sign out</Text>
               <Text style={{ fontSize: 13, color: colorScheme === "dark" ? "#999" : "#666", marginBottom: 8 }}>
-                Permanently delete your account and all data.
+                Sign out of your account on this device.
               </Text>
               <Pressable
-                onPress={handleDeleteAccount}
+                onPress={handleSignOut}
                 disabled={loading !== null}
                 style={{
-                  backgroundColor: "#dc2626",
+                  backgroundColor: colors["blue-500"],
                   paddingVertical: 12,
                   paddingHorizontal: 16,
                   borderRadius: 10,
                   alignItems: "center",
                 }}
               >
-                {loading === "delete" ? (
+                {loading === "signout" ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={{ color: "#fff", fontWeight: "600" }}>Delete account</Text>
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>Sign out</Text>
                 )}
               </Pressable>
             </View>
           </ScrollView>
+          <View style={{ alignItems: "flex-start", paddingTop: 8 }}>
+            <Pressable
+              onPress={handleDeleteAccount}
+              disabled={loading !== null}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 4,
+                opacity: loading !== null ? 0.6 : 1,
+              }}
+            >
+              {loading === "delete" ? (
+                <ActivityIndicator color="#dc2626" />
+              ) : (
+                <Text style={{ color: "#dc2626", fontSize: 13, fontWeight: "600" }}>Delete account</Text>
+              )}
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
