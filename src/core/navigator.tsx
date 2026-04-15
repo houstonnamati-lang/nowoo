@@ -23,7 +23,17 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Home: undefined;
   Exercise: { customSettings?: import("@nowoo/screens/custom-session-setup-screen/custom-session-setup-screen").CustomSessionSettings } | undefined;
-  Settings: undefined;
+  Settings:
+    | {
+        initialScreen?:
+          | "SettingsRoot"
+          | "SettingsPatternPicker"
+          | "SettingsDefaultSettings"
+          | "SettingsScheduleRise"
+          | "SettingsScheduleReset"
+          | "SettingsScheduleRestore";
+      }
+    | undefined;
   CustomSessionSetup: undefined;
 };
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -137,7 +147,7 @@ export const Navigator: FC = () => {
               },
             }}
           >
-            {() => {
+            {({ route }) => {
               const commonHeaderSettings = {
                 headerShadowVisible: Platform.OS === "ios",
                 headerStyle: {
@@ -148,7 +158,7 @@ export const Navigator: FC = () => {
               };
               return (
                 <SettingsStack.Navigator 
-                  initialRouteName="SettingsRoot"
+                  initialRouteName={route.params?.initialScreen ?? "SettingsRoot"}
                   screenOptions={{
                     contentStyle: {
                       backgroundColor: colorScheme === "dark" ? "#000000" : colors["stone-100"],

@@ -8,6 +8,7 @@ import { RootStackParamList } from "@nowoo/core/navigator";
 import { colors } from "@nowoo/design/colors";
 import { SettingsUI } from "@nowoo/screens/settings-screen/settings-ui";
 import { useSettingsStore } from "@nowoo/stores/settings";
+import { SETUP_GUIDE_STEPS, useSetupGuideStore } from "@nowoo/stores/setup-guide";
 import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
 import { FrequencyNoiseOptionLabel, FREQUENCY_BEST_FOR, NOISE_BEST_FOR } from "@nowoo/utils/pattern-schedule-dots";
 import { GuidedBreathingMode } from "@nowoo/types/guided-breathing-mode";
@@ -40,6 +41,9 @@ export const CustomSessionSetupScreen: FC<
   const mainVibrationEnabled = useSettingsStore((state) => state.vibrationEnabled);
   const mainTimeLimit = useSettingsStore((state) => state.timeLimit);
   const customPatterns = useSettingsStore((state) => state.customPatterns);
+  const isSetupGuideActive = useSetupGuideStore((state) => state.isActive);
+  const setupGuideStepIndex = useSetupGuideStore((state) => state.currentStepIndex);
+  const finishSetupGuide = useSetupGuideStore((state) => state.finishGuide);
   
   const allPatterns = [...patternPresets, ...customPatterns];
   
@@ -65,7 +69,12 @@ export const CustomSessionSetupScreen: FC<
         timeLimit: selectedTimeLimit,
       }),
     };
-    
+    const currentGuideStepId = SETUP_GUIDE_STEPS[
+      Math.max(0, Math.min(setupGuideStepIndex, SETUP_GUIDE_STEPS.length - 1))
+    ];
+    if (isSetupGuideActive && currentGuideStepId === "quickBreath") {
+      finishSetupGuide();
+    }
     navigation.navigate("Exercise", { customSettings: settings });
   };
   

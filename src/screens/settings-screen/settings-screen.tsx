@@ -2,7 +2,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useColorScheme } from "nativewind";
 import ms from "ms";
 import React, { FC, useEffect, useState, useRef } from "react";
-import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions, TextInput, ActivityIndicator, KeyboardAvoidingView, PanResponder, GestureResponderEvent, PanResponderGestureState } from "react-native";
+import { View, ScrollView, LayoutAnimation, Button, Platform, Text, Alert, Pressable, Modal, Dimensions, TextInput, ActivityIndicator, KeyboardAvoidingView, PanResponder, GestureResponderEvent, PanResponderGestureState, Animated } from "react-native";
 import Slider from "@react-native-community/slider";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { patternPresets } from "@nowoo/assets/pattern-presets";
@@ -16,6 +16,7 @@ import {
   useSettingsStore,
 } from "@nowoo/stores/settings";
 import { useAuthStore } from "@nowoo/stores/auth";
+import { SETUP_GUIDE_STEPS, useSetupGuideStore } from "@nowoo/stores/setup-guide";
 import { getFirebaseAuth } from "@nowoo/config/firebase";
 import { sendPasswordResetEmail, updateProfile, deleteUser, signOut } from "firebase/auth";
 import { CalmingFrequencyMode, NoiseBedMode } from "@nowoo/types/frequency-tone-mode";
@@ -418,6 +419,28 @@ export const SettingsRootScreen: FC<
   const [showAccountSheet, setShowAccountSheet] = useState(false);
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
+  const startGuideFromSettings = useSetupGuideStore((state) => state.startGuideFromSettings);
+  const isSetupGuideActive = useSetupGuideStore((state) => state.isActive);
+  const setupGuideStepIndex = useSetupGuideStore((state) => state.currentStepIndex);
+  const nextSetupGuideStep = useSetupGuideStore((state) => state.nextStep);
+  const previousSetupGuideStep = useSetupGuideStore((state) => state.previousStep);
+  const skipSetupGuide = useSetupGuideStore((state) => state.skipGuide);
+  const currentSetupGuideStep = SETUP_GUIDE_STEPS[
+    Math.max(0, Math.min(setupGuideStepIndex, SETUP_GUIDE_STEPS.length - 1))
+  ];
+
+  React.useEffect(() => {
+    if (!isSetupGuideActive) return;
+    if (
+      currentSetupGuideStep === "rise" ||
+      currentSetupGuideStep === "risePatterns" ||
+      currentSetupGuideStep === "riseSounds" ||
+      currentSetupGuideStep === "riseAppearance" ||
+      currentSetupGuideStep === "riseTimer"
+    ) {
+      navigation.navigate("SettingsScheduleRise");
+    }
+  }, [isSetupGuideActive, currentSetupGuideStep, navigation]);
   
   const selectedPatternName = useSelectedPatternName();
   const selectedPatternDurations = useSelectedPatternSteps();
@@ -648,6 +671,18 @@ export const SettingsRootScreen: FC<
               />
             </SettingsUI.Section>
           )}
+          <SettingsUI.Section label="Help">
+            <SettingsUI.LinkItem
+              label="Guide"
+              iconName="school"
+              iconBackgroundColor="#22c55e"
+              value="Interactive walk-through"
+              onPress={() => {
+                startGuideFromSettings();
+                navigation.getParent()?.goBack();
+              }}
+            />
+          </SettingsUI.Section>
         </ScrollView>
 
         <Modal
@@ -711,37 +746,64 @@ export const SettingsRootScreen: FC<
             >
               {quickBreathSubmenu === "main" && (
                 <>
-                  <SettingsUI.Section label="Quick Breath">
-                    <SettingsUI.LinkItem
-                      label="Patterns"
-                      iconName="body"
-                      iconBackgroundColor="#bfdbfe"
-                      value={(() => {
-                        const hasIntervalsInName = selectedPatternName.includes("(") && selectedPatternName.includes(")");
-                        return hasIntervalsInName
-                          ? selectedPatternName
-                          : `${selectedPatternName} (${selectedPatternDurations.map((d) => d / ms("1 sec")).join("-")})`;
-                      })()}
-                      onPress={() => {
-                        setShowQuickBreathSheet(false);
-                        navigation.navigate("SettingsPatternPicker");
-                      }}
-                    />
-                    <SettingsUI.LinkItem
-                      label="Sounds & Haptics"
-                      iconName="volume-medium"
-                      iconBackgroundColor="#fdba74"
-                      value=""
-                      onPress={() => setQuickBreathSubmenu("sounds")}
-                    />
-                    <SettingsUI.LinkItem
-                      label="Appearance"
-                      iconName="color-palette"
-                      iconBackgroundColor="#a5b4fc"
-                      value=""
-                      onPress={() => setQuickBreathSubmenu("appearance")}
-                    />
-                  </SettingsUI.Section>
+                  <Animated.View
+                    style={{
+                      borderRadius: 14,
+                      borderWidth: 0,
+                      borderColor: "transparent",
+                      paddingHorizontal: 0,
+                    }}
+                  >
+                    <SettingsUI.Section label="Quick Breath">
+                      <SettingsUI.LinkItem
+                        label="Patterns"
+                        iconName="body"
+                        iconBackgroundColor="#bfdbfe"
+                        value={(() => {
+                          const hasIntervalsInName = selectedPatternName.includes("(") && selectedPatternName.includes(")");
+                          return hasIntervalsInName
+                            ? selectedPatternName
+                            : `${selectedPatternName} (${selectedPatternDurations.map((d) => d / ms("1 sec")).join("-")})`;
+                        })()}
+                        onPress={() => {
+                          setShowQuickBreathSheet(false);
+                          navigation.navigate("SettingsPatternPicker");
+                        }}
+                      />
+                      <Animated.View
+                        style={{
+                          borderRadius: 10,
+                          borderWidth: 0,
+                          borderColor: "transparent",
+                          marginHorizontal: 0,
+                        }}
+                      >
+                        <SettingsUI.LinkItem
+                          label="Sounds & Haptics"
+                          iconName="volume-medium"
+                          iconBackgroundColor="#fdba74"
+                          value=""
+                          onPress={() => setQuickBreathSubmenu("sounds")}
+                        />
+                      </Animated.View>
+                      <Animated.View
+                        style={{
+                          borderRadius: 10,
+                          borderWidth: 0,
+                          borderColor: "transparent",
+                          marginHorizontal: 0,
+                        }}
+                      >
+                        <SettingsUI.LinkItem
+                          label="Appearance"
+                          iconName="color-palette"
+                          iconBackgroundColor="#a5b4fc"
+                          value=""
+                          onPress={() => setQuickBreathSubmenu("appearance")}
+                        />
+                      </Animated.View>
+                    </SettingsUI.Section>
+                  </Animated.View>
                   <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
                     <SettingsUI.StepperItem
                       label="Exercise Timer"
@@ -1306,6 +1368,12 @@ type ScheduleSubmenu = "main" | "patterns" | "sounds" | "appearance";
 export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
   const [submenu, setSubmenu] = useState<ScheduleSubmenu>("main");
+  const [guidePulseAnim] = useState(new Animated.Value(0));
+  const isSetupGuideActive = useSetupGuideStore((state) => state.isActive);
+  const setupGuideStepIndex = useSetupGuideStore((state) => state.currentStepIndex);
+  const nextSetupGuideStep = useSetupGuideStore((state) => state.nextStep);
+  const previousSetupGuideStep = useSetupGuideStore((state) => state.previousStep);
+  const skipSetupGuide = useSetupGuideStore((state) => state.skipGuide);
   const customPatterns = useSettingsStore((state) => state.customPatterns);
   const scheduleRise = useSettingsStore((state) => state.scheduleRise);
   const setScheduleRise = useSettingsStore((state) => state.setScheduleRise);
@@ -1353,6 +1421,47 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
   const setScheduleRiseToneVolume = useSettingsStore((state) => state.setScheduleRiseToneVolume);
 
   const allPatterns = [...patternPresets, ...customPatterns];
+  const currentSetupGuideStep = SETUP_GUIDE_STEPS[
+    Math.max(0, Math.min(setupGuideStepIndex, SETUP_GUIDE_STEPS.length - 1))
+  ];
+  const isGuideRiseFlowStep =
+    isSetupGuideActive &&
+    (currentSetupGuideStep === "rise" ||
+      currentSetupGuideStep === "risePatterns" ||
+      currentSetupGuideStep === "riseSounds" ||
+      currentSetupGuideStep === "riseAppearance" ||
+      currentSetupGuideStep === "riseTimer");
+  const isGuideRiseTimesStep = isGuideRiseFlowStep && currentSetupGuideStep === "rise";
+  const isGuideRisePatternsStep = isGuideRiseFlowStep && currentSetupGuideStep === "risePatterns";
+  const isGuideRiseSoundsStep = isGuideRiseFlowStep && currentSetupGuideStep === "riseSounds";
+  const isGuideRiseAppearanceStep = isGuideRiseFlowStep && currentSetupGuideStep === "riseAppearance";
+  const isGuideRiseTimerStep = isGuideRiseFlowStep && currentSetupGuideStep === "riseTimer";
+  const isGuideOnMain = isGuideRiseFlowStep && submenu === "main";
+
+  React.useEffect(() => {
+    if (!isGuideOnMain) {
+      guidePulseAnim.stopAnimation();
+      guidePulseAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(guidePulseAnim, { toValue: 1, duration: 700, useNativeDriver: false }),
+        Animated.timing(guidePulseAnim, { toValue: 0, duration: 700, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      guidePulseAnim.stopAnimation();
+      guidePulseAnim.setValue(0);
+    };
+  }, [isGuideOnMain, guidePulseAnim]);
+
+  const guidePulseBorderColor = guidePulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(59,130,246,0.25)", "rgba(59,130,246,0.95)"],
+  });
 
   const riseSoundSliderStartRef = React.useRef(0);
   const handleRiseSoundSliderStart = async () => {
@@ -1413,6 +1522,43 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
     setScheduleRiseEndTime(newTime);
   };
 
+  const handleGuideContinue = () => {
+    if (!isGuideRiseFlowStep) return;
+    if (isGuideRiseTimesStep) {
+      if (!scheduleRiseStartTime || !scheduleRiseEndTime) {
+        Alert.alert("Rise not set", "Please set both start and end times first.");
+        return;
+      }
+      nextSetupGuideStep();
+      return;
+    }
+    if (isGuideRiseTimerStep) {
+      nextSetupGuideStep();
+      navigation.getParent()?.goBack();
+      return;
+    }
+    nextSetupGuideStep();
+  };
+
+  const riseGuideTitle = isGuideRiseTimesStep
+    ? "Guide: Set Rise times"
+    : isGuideRisePatternsStep
+      ? "Guide: Set Rise patterns"
+      : isGuideRiseSoundsStep
+        ? "Guide: Set Rise sounds and haptics"
+        : isGuideRiseAppearanceStep
+          ? "Guide: Set Rise appearance"
+          : "Guide: Set Rise timer";
+  const riseGuideMessage = isGuideRiseTimesStep
+    ? "Set both Start Time and End Time, then tap Continue."
+    : isGuideRisePatternsStep
+      ? "Open Patterns, choose your Rise pattern(s), then come back and tap Continue."
+      : isGuideRiseSoundsStep
+        ? "Open Sounds & Haptics, tune voice/sound/vibration, then come back and tap Continue."
+        : isGuideRiseAppearanceStep
+          ? "Open Appearance, set colors/background, then come back and tap Continue."
+          : "Set the Rise exercise timer. Then continue to finish setup.";
+
 
   return (
     <View
@@ -1442,70 +1588,173 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
       >
         {submenu === "main" && (
           <>
-            <SettingsUI.Section label="Time Range">
-              <SettingsUI.PickerItem
-                label="Start Time"
-                iconName="time-outline"
-                iconBackgroundColor="#fbbf24"
-                value={scheduleRiseStartTime || ""}
-                options={[{ value: "", label: "Not set" }, ...timeOptions]}
-                onValueChange={handleStartTimeChange}
-              />
-              <SettingsUI.PickerItem
-                label="End Time"
-                iconName="time-outline"
-                iconBackgroundColor="#fbbf24"
-                value={scheduleRiseEndTime || ""}
-                options={[{ value: "", label: "Not set" }, ...timeOptions]}
-                onValueChange={handleEndTimeChange}
-              />
-            </SettingsUI.Section>
+            {isGuideOnMain && (
+                <View
+                  style={{
+                    marginBottom: 10,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: colorScheme === "dark" ? "#2f2f33" : "#e7e5e4",
+                    backgroundColor: colorScheme === "dark" ? "#161618" : "#ffffff",
+                    padding: 12,
+                  }}
+                >
+                  <Text style={{ color: colorScheme === "dark" ? "#fff" : "#111827", fontWeight: "600", marginBottom: 4 }}>
+                    {riseGuideTitle}
+                  </Text>
+                  <Text style={{ color: colorScheme === "dark" ? "#9ca3af" : "#4b5563", fontSize: 13 }}>
+                    {riseGuideMessage}
+                  </Text>
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    <Pressable onPress={skipSetupGuide} style={{ alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 4 }}>
+                      <Text style={{ color: colorScheme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 12 }}>
+                        Skip guide
+                      </Text>
+                    </Pressable>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+                      <Pressable
+                        onPress={setupGuideStepIndex > 0 ? previousSetupGuideStep : undefined}
+                        accessibilityLabel="Back"
+                        style={{
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === "dark" ? "#2f2f33" : "#f3f4f6",
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: setupGuideStepIndex > 0 ? 1 : 0.45,
+                        }}
+                      >
+                        <Ionicons
+                          name="chevron-back"
+                          size={22}
+                          color={colorScheme === "dark" ? "#ffffff" : "#111827"}
+                        />
+                      </Pressable>
+                      <Pressable
+                        onPress={handleGuideContinue}
+                        accessibilityLabel="Continue"
+                        style={{
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === "dark" ? "#007AFF" : colors["blue-500"],
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="chevron-forward" size={22} color="#fff" />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              )}
+            <Animated.View
+              style={{
+                borderRadius: 14,
+                borderWidth: isGuideOnMain && isGuideRiseTimesStep ? 2 : 0,
+                borderColor: isGuideOnMain && isGuideRiseTimesStep ? guidePulseBorderColor : "transparent",
+                paddingHorizontal: isGuideOnMain && isGuideRiseTimesStep ? 4 : 0,
+              }}
+            >
+              <SettingsUI.Section label="Time Range">
+                <SettingsUI.PickerItem
+                  label="Start Time"
+                  iconName="time-outline"
+                  iconBackgroundColor="#fbbf24"
+                  value={scheduleRiseStartTime || ""}
+                  options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                  onValueChange={handleStartTimeChange}
+                />
+                <SettingsUI.PickerItem
+                  label="End Time"
+                  iconName="time-outline"
+                  iconBackgroundColor="#fbbf24"
+                  value={scheduleRiseEndTime || ""}
+                  options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                  onValueChange={handleEndTimeChange}
+                />
+              </SettingsUI.Section>
+            </Animated.View>
             <SettingsUI.Section label="Rise">
-              <SettingsUI.LinkItem
-                label="Patterns"
-                iconName="body"
-                iconBackgroundColor="#fbbf24"
-                value={
-                  scheduleRise.length > 0
-                    ? `${scheduleRise.length} selected`
-                    : `Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.rise[0])?.name ?? "Awake"}`
-                }
-                onPress={() => setSubmenu("patterns")}
-              />
-              <SettingsUI.LinkItem
-                label="Sounds & Haptics"
-                iconName="volume-medium"
-                iconBackgroundColor="#fbbf24"
-                value=""
-                onPress={() => setSubmenu("sounds")}
-              />
-              <SettingsUI.LinkItem
-                label="Appearance"
-                iconName="color-palette"
-                iconBackgroundColor="#fbbf24"
-                value=""
-                onPress={() => setSubmenu("appearance")}
-              />
-            </SettingsUI.Section>
-            <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
-              <SettingsUI.StepperItem
-                label="Exercise Timer"
-                iconName="timer"
-                iconBackgroundColor="#fbbf24"
-                value={scheduleRiseTimeLimit / ms("1 min")}
-                fractionDigits={1}
-                decreaseDisabled={scheduleRiseTimeLimit <= 0}
-                increaseDisabled={scheduleRiseTimeLimit >= maxTimeLimit}
-                onDecrease={() => {
-                  const newLimit = Math.max(0, scheduleRiseTimeLimit - ms("0.5 min"));
-                  setScheduleRiseTimeLimit(newLimit);
+              <Animated.View
+                style={{
+                  borderRadius: 10,
+                  borderWidth: isGuideOnMain && isGuideRisePatternsStep ? 2 : 0,
+                  borderColor: isGuideOnMain && isGuideRisePatternsStep ? guidePulseBorderColor : "transparent",
                 }}
-                onIncrease={() => {
-                  const newLimit = Math.min(maxTimeLimit, scheduleRiseTimeLimit + ms("0.5 min"));
-                  setScheduleRiseTimeLimit(newLimit);
+              >
+                <SettingsUI.LinkItem
+                  label="Patterns"
+                  iconName="body"
+                  iconBackgroundColor="#fbbf24"
+                  value={
+                    scheduleRise.length > 0
+                      ? `${scheduleRise.length} selected`
+                      : `Default: ${patternPresets.find((p) => p.id === DEFAULT_SCHEDULE_PATTERNS.rise[0])?.name ?? "Awake"}`
+                  }
+                  onPress={() => setSubmenu("patterns")}
+                />
+              </Animated.View>
+              <Animated.View
+                style={{
+                  borderRadius: 10,
+                  borderWidth: isGuideOnMain && isGuideRiseSoundsStep ? 2 : 0,
+                  borderColor: isGuideOnMain && isGuideRiseSoundsStep ? guidePulseBorderColor : "transparent",
                 }}
-              />
+              >
+                <SettingsUI.LinkItem
+                  label="Sounds & Haptics"
+                  iconName="volume-medium"
+                  iconBackgroundColor="#fbbf24"
+                  value=""
+                  onPress={() => setSubmenu("sounds")}
+                />
+              </Animated.View>
+              <Animated.View
+                style={{
+                  borderRadius: 10,
+                  borderWidth: isGuideOnMain && isGuideRiseAppearanceStep ? 2 : 0,
+                  borderColor: isGuideOnMain && isGuideRiseAppearanceStep ? guidePulseBorderColor : "transparent",
+                }}
+              >
+                <SettingsUI.LinkItem
+                  label="Appearance"
+                  iconName="color-palette"
+                  iconBackgroundColor="#fbbf24"
+                  value=""
+                  onPress={() => setSubmenu("appearance")}
+                />
+              </Animated.View>
             </SettingsUI.Section>
+            <Animated.View
+              style={{
+                borderRadius: 10,
+                borderWidth: isGuideOnMain && isGuideRiseTimerStep ? 2 : 0,
+                borderColor: isGuideOnMain && isGuideRiseTimerStep ? guidePulseBorderColor : "transparent",
+                paddingHorizontal: isGuideOnMain && isGuideRiseTimerStep ? 4 : 0,
+              }}
+            >
+              <SettingsUI.Section label="Timer" hideBottomBorderAndroid>
+                <SettingsUI.StepperItem
+                  label="Exercise Timer"
+                  iconName="timer"
+                  iconBackgroundColor="#fbbf24"
+                  value={scheduleRiseTimeLimit / ms("1 min")}
+                  fractionDigits={1}
+                  decreaseDisabled={scheduleRiseTimeLimit <= 0}
+                  increaseDisabled={scheduleRiseTimeLimit >= maxTimeLimit}
+                  onDecrease={() => {
+                    const newLimit = Math.max(0, scheduleRiseTimeLimit - ms("0.5 min"));
+                    setScheduleRiseTimeLimit(newLimit);
+                  }}
+                  onIncrease={() => {
+                    const newLimit = Math.min(maxTimeLimit, scheduleRiseTimeLimit + ms("0.5 min"));
+                    setScheduleRiseTimeLimit(newLimit);
+                  }}
+                />
+              </SettingsUI.Section>
+            </Animated.View>
           </>
         )}
         {submenu === "patterns" && (
@@ -1702,6 +1951,12 @@ export const SettingsScheduleRiseScreen: FC<ScheduleScreenProps> = ({ navigation
 export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
   const [submenu, setSubmenu] = useState<ScheduleSubmenu>("main");
+  const [guidePulseAnim] = useState(new Animated.Value(0));
+  const isSetupGuideActive = useSetupGuideStore((state) => state.isActive);
+  const setupGuideStepIndex = useSetupGuideStore((state) => state.currentStepIndex);
+  const nextSetupGuideStep = useSetupGuideStore((state) => state.nextStep);
+  const previousSetupGuideStep = useSetupGuideStore((state) => state.previousStep);
+  const skipSetupGuide = useSetupGuideStore((state) => state.skipGuide);
   const customPatterns = useSettingsStore((state) => state.customPatterns);
   const scheduleReset = useSettingsStore((state) => state.scheduleReset);
   const setScheduleReset = useSettingsStore((state) => state.setScheduleReset);
@@ -1749,6 +2004,35 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
   const setScheduleResetToneVolume = useSettingsStore((state) => state.setScheduleResetToneVolume);
 
   const allPatterns = [...patternPresets, ...customPatterns];
+  const currentSetupGuideStep = SETUP_GUIDE_STEPS[
+    Math.max(0, Math.min(setupGuideStepIndex, SETUP_GUIDE_STEPS.length - 1))
+  ] as string;
+  const isGuideResetStep = isSetupGuideActive && currentSetupGuideStep === "reset" && submenu === "main";
+
+  React.useEffect(() => {
+    if (!isGuideResetStep) {
+      guidePulseAnim.stopAnimation();
+      guidePulseAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(guidePulseAnim, { toValue: 1, duration: 700, useNativeDriver: false }),
+        Animated.timing(guidePulseAnim, { toValue: 0, duration: 700, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      guidePulseAnim.stopAnimation();
+      guidePulseAnim.setValue(0);
+    };
+  }, [isGuideResetStep, guidePulseAnim]);
+
+  const guidePulseBorderColor = guidePulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(59,130,246,0.25)", "rgba(59,130,246,0.95)"],
+  });
 
   const resetSoundSliderStartRef = React.useRef(0);
   const handleResetSoundSliderStart = async () => {
@@ -1838,24 +2122,101 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
       >
         {submenu === "main" && (
           <>
-            <SettingsUI.Section label="Time Range">
-              <SettingsUI.PickerItem
-                label="Start Time"
-                iconName="time-outline"
-                iconBackgroundColor="#23cd32"
-                value={scheduleResetStartTime || ""}
-                options={[{ value: "", label: "Not set" }, ...timeOptions]}
-                onValueChange={handleStartTimeChange}
-              />
-              <SettingsUI.PickerItem
-                label="End Time"
-                iconName="time-outline"
-                iconBackgroundColor="#23cd32"
-                value={scheduleResetEndTime || ""}
-                options={[{ value: "", label: "Not set" }, ...timeOptions]}
-                onValueChange={handleEndTimeChange}
-              />
-            </SettingsUI.Section>
+            {isGuideResetStep && (
+                <View
+                  style={{
+                    marginBottom: 10,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: colorScheme === "dark" ? "#2f2f33" : "#e7e5e4",
+                    backgroundColor: colorScheme === "dark" ? "#161618" : "#ffffff",
+                    padding: 12,
+                  }}
+                >
+                  <Text style={{ color: colorScheme === "dark" ? "#fff" : "#111827", fontWeight: "600", marginBottom: 4 }}>
+                    Guide: Set Reset times
+                  </Text>
+                  <Text style={{ color: colorScheme === "dark" ? "#9ca3af" : "#4b5563", fontSize: 13 }}>
+                    Set both Start Time and End Time, then tap Continue.
+                  </Text>
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    <Pressable onPress={skipSetupGuide} style={{ alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 4 }}>
+                      <Text style={{ color: colorScheme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 12 }}>
+                        Skip guide
+                      </Text>
+                    </Pressable>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+                      <Pressable
+                        onPress={setupGuideStepIndex > 0 ? previousSetupGuideStep : undefined}
+                        accessibilityLabel="Back"
+                        style={{
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === "dark" ? "#2f2f33" : "#f3f4f6",
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: setupGuideStepIndex > 0 ? 1 : 0.45,
+                        }}
+                      >
+                        <Ionicons
+                          name="chevron-back"
+                          size={22}
+                          color={colorScheme === "dark" ? "#ffffff" : "#111827"}
+                        />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          if (!scheduleResetStartTime || !scheduleResetEndTime) {
+                            Alert.alert("Reset not set", "Please set both start and end times first.");
+                            return;
+                          }
+                          nextSetupGuideStep();
+                          navigation.goBack();
+                        }}
+                        accessibilityLabel="Continue"
+                        style={{
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === "dark" ? "#007AFF" : colors["blue-500"],
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="chevron-forward" size={22} color="#fff" />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              )}
+            <Animated.View
+              style={{
+                borderRadius: 14,
+                borderWidth: isGuideResetStep ? 2 : 0,
+                borderColor: isGuideResetStep ? guidePulseBorderColor : "transparent",
+                paddingHorizontal: isGuideResetStep ? 4 : 0,
+              }}
+            >
+              <SettingsUI.Section label="Time Range">
+                <SettingsUI.PickerItem
+                  label="Start Time"
+                  iconName="time-outline"
+                  iconBackgroundColor="#23cd32"
+                  value={scheduleResetStartTime || ""}
+                  options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                  onValueChange={handleStartTimeChange}
+                />
+                <SettingsUI.PickerItem
+                  label="End Time"
+                  iconName="time-outline"
+                  iconBackgroundColor="#23cd32"
+                  value={scheduleResetEndTime || ""}
+                  options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                  onValueChange={handleEndTimeChange}
+                />
+              </SettingsUI.Section>
+            </Animated.View>
             <SettingsUI.Section label="Reset">
               <SettingsUI.LinkItem
                 label="Patterns"
@@ -2098,6 +2459,12 @@ export const SettingsScheduleResetScreen: FC<ScheduleScreenProps> = ({ navigatio
 export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigation }) => {
   const { colorScheme } = useColorScheme();
   const [submenu, setSubmenu] = useState<ScheduleSubmenu>("main");
+  const [guidePulseAnim] = useState(new Animated.Value(0));
+  const isSetupGuideActive = useSetupGuideStore((state) => state.isActive);
+  const setupGuideStepIndex = useSetupGuideStore((state) => state.currentStepIndex);
+  const nextSetupGuideStep = useSetupGuideStore((state) => state.nextStep);
+  const previousSetupGuideStep = useSetupGuideStore((state) => state.previousStep);
+  const skipSetupGuide = useSetupGuideStore((state) => state.skipGuide);
   const customPatterns = useSettingsStore((state) => state.customPatterns);
   const scheduleRestore = useSettingsStore((state) => state.scheduleRestore);
   const setScheduleRestore = useSettingsStore((state) => state.setScheduleRestore);
@@ -2145,6 +2512,35 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
   const setScheduleRestoreToneVolume = useSettingsStore((state) => state.setScheduleRestoreToneVolume);
 
   const allPatterns = [...patternPresets, ...customPatterns];
+  const currentSetupGuideStep = SETUP_GUIDE_STEPS[
+    Math.max(0, Math.min(setupGuideStepIndex, SETUP_GUIDE_STEPS.length - 1))
+  ] as string;
+  const isGuideRestoreStep = isSetupGuideActive && currentSetupGuideStep === "restore" && submenu === "main";
+
+  React.useEffect(() => {
+    if (!isGuideRestoreStep) {
+      guidePulseAnim.stopAnimation();
+      guidePulseAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(guidePulseAnim, { toValue: 1, duration: 700, useNativeDriver: false }),
+        Animated.timing(guidePulseAnim, { toValue: 0, duration: 700, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      guidePulseAnim.stopAnimation();
+      guidePulseAnim.setValue(0);
+    };
+  }, [isGuideRestoreStep, guidePulseAnim]);
+
+  const guidePulseBorderColor = guidePulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(59,130,246,0.25)", "rgba(59,130,246,0.95)"],
+  });
 
   const restoreSoundSliderStartRef = React.useRef(0);
   const handleRestoreSoundSliderStart = async () => {
@@ -2234,24 +2630,101 @@ export const SettingsScheduleRestoreScreen: FC<ScheduleScreenProps> = ({ navigat
       >
         {submenu === "main" && (
           <>
-            <SettingsUI.Section label="Time Range">
-              <SettingsUI.PickerItem
-                label="Start Time"
-                iconName="time-outline"
-                iconBackgroundColor="#a78bfa"
-                value={scheduleRestoreStartTime || ""}
-                options={[{ value: "", label: "Not set" }, ...timeOptions]}
-                onValueChange={handleStartTimeChange}
-              />
-              <SettingsUI.PickerItem
-                label="End Time"
-                iconName="time-outline"
-                iconBackgroundColor="#a78bfa"
-                value={scheduleRestoreEndTime || ""}
-                options={[{ value: "", label: "Not set" }, ...timeOptions]}
-                onValueChange={handleEndTimeChange}
-              />
-            </SettingsUI.Section>
+            {isGuideRestoreStep && (
+                <View
+                  style={{
+                    marginBottom: 10,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: colorScheme === "dark" ? "#2f2f33" : "#e7e5e4",
+                    backgroundColor: colorScheme === "dark" ? "#161618" : "#ffffff",
+                    padding: 12,
+                  }}
+                >
+                  <Text style={{ color: colorScheme === "dark" ? "#fff" : "#111827", fontWeight: "600", marginBottom: 4 }}>
+                    Guide: Set Restore times
+                  </Text>
+                  <Text style={{ color: colorScheme === "dark" ? "#9ca3af" : "#4b5563", fontSize: 13 }}>
+                    Set both Start Time and End Time, then tap Continue.
+                  </Text>
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    <Pressable onPress={skipSetupGuide} style={{ alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 4 }}>
+                      <Text style={{ color: colorScheme === "dark" ? "#9ca3af" : "#6b7280", fontSize: 12 }}>
+                        Skip guide
+                      </Text>
+                    </Pressable>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+                      <Pressable
+                        onPress={setupGuideStepIndex > 0 ? previousSetupGuideStep : undefined}
+                        accessibilityLabel="Back"
+                        style={{
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === "dark" ? "#2f2f33" : "#f3f4f6",
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: setupGuideStepIndex > 0 ? 1 : 0.45,
+                        }}
+                      >
+                        <Ionicons
+                          name="chevron-back"
+                          size={22}
+                          color={colorScheme === "dark" ? "#ffffff" : "#111827"}
+                        />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          if (!scheduleRestoreStartTime || !scheduleRestoreEndTime) {
+                            Alert.alert("Restore not set", "Please set both start and end times first.");
+                            return;
+                          }
+                          nextSetupGuideStep();
+                          navigation.goBack();
+                        }}
+                        accessibilityLabel="Continue"
+                        style={{
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === "dark" ? "#007AFF" : colors["blue-500"],
+                          width: 44,
+                          height: 44,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="chevron-forward" size={22} color="#fff" />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              )}
+            <Animated.View
+              style={{
+                borderRadius: 14,
+                borderWidth: isGuideRestoreStep ? 2 : 0,
+                borderColor: isGuideRestoreStep ? guidePulseBorderColor : "transparent",
+                paddingHorizontal: isGuideRestoreStep ? 4 : 0,
+              }}
+            >
+              <SettingsUI.Section label="Time Range">
+                <SettingsUI.PickerItem
+                  label="Start Time"
+                  iconName="time-outline"
+                  iconBackgroundColor="#a78bfa"
+                  value={scheduleRestoreStartTime || ""}
+                  options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                  onValueChange={handleStartTimeChange}
+                />
+                <SettingsUI.PickerItem
+                  label="End Time"
+                  iconName="time-outline"
+                  iconBackgroundColor="#a78bfa"
+                  value={scheduleRestoreEndTime || ""}
+                  options={[{ value: "", label: "Not set" }, ...timeOptions]}
+                  onValueChange={handleEndTimeChange}
+                />
+              </SettingsUI.Section>
+            </Animated.View>
             <SettingsUI.Section label="Restore">
               <SettingsUI.LinkItem
                 label="Patterns"
