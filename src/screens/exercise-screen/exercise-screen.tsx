@@ -28,7 +28,7 @@ import { buildStepsMetadata } from "@nowoo/utils/build-steps-metadata";
 import { useOnUpdate } from "@nowoo/utils/use-on-update";
 import { getActiveScheduleCategory } from "@nowoo/utils/schedule-utils";
 import { useEffectiveExerciseBackground, UseDefaultSettingsContext } from "./use-effective-exercise-background";
-import { recordActivity } from "@nowoo/services/activity-tracker";
+import { recordBreathworkCompleted } from "@nowoo/services/activity-tracker";
 import { useStreakStore } from "@nowoo/stores/streak";
 import { BreathingAnimation } from "./breathing-animation";
 import { ExerciseComplete } from "./complete";
@@ -303,8 +303,6 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
 
   const handleInterludeComplete = () => {
     setStatus("running");
-    // Record activity when exercise starts
-    recordActivity();
   };
 
   const handleExerciseStepChange = (stepMetadata: StepMetadata) => {
@@ -313,13 +311,12 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
 
   const incrementStreak = useStreakStore((state) => state.incrementStreak);
   const didCountSessionRef = useRef(false);
-  const isQuickBreathSession = !customSettings && scheduleCategoryForAudio == null;
 
   const markSessionCompleted = () => {
     if (didCountSessionRef.current) return;
     didCountSessionRef.current = true;
-    // Count any completed session toward activity and streak once per run.
-    recordActivity();
+    // Count any completed session toward activity, streak, and inactivity reminders once per run.
+    void recordBreathworkCompleted();
     incrementStreak();
   };
 
@@ -577,9 +574,7 @@ const ExerciseScreenInner: FC<NativeStackScreenProps<RootStackParamList, "Exerci
               className="rounded-xl py-3"
               style={{ backgroundColor: colorScheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
               onPress={() => {
-                if (status === "running" && isQuickBreathSession) {
-                  // Quick Breath users often end manually before timer completion.
-                  // Count this as a completed practice for streak purposes.
+                if (status === "running") {
                   markSessionCompleted();
                 }
                 setShowPauseDialog(false);

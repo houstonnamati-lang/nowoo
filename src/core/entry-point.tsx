@@ -17,7 +17,7 @@ import {
 } from "@nowoo/utils/use-sticky-immersive-reset";
 import { useThemedStatusBar } from "@nowoo/utils/use-themed-status-bar";
 import { SplashScreenManager } from "./splash-screen-manager";
-import { initializeActivityTracker, checkAndScheduleInactivityReminder } from "@nowoo/services/activity-tracker";
+import { initializeActivityTracker } from "@nowoo/services/activity-tracker";
 import { requestNotificationPermissions, registerUserForPushNotifications } from "@nowoo/services/notifications";
 
 // Enable layout animations on Android so that we can animate views to their new
@@ -113,11 +113,8 @@ const Main: FC = () => {
     // Request notification permissions
     requestNotificationPermissions();
 
-    // Initialize activity tracker (tracks app state changes)
+    // Initialize activity tracker (streak refresh on foreground)
     initializeActivityTracker();
-
-    // Check inactivity and schedule reminder if needed
-    checkAndScheduleInactivityReminder();
   }, []);
 
   // Register authenticated users for remote push notifications

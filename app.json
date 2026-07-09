@@ -3,7 +3,7 @@
     "name": "NoWoo",
     "slug": "nowoo",
     "scheme": "com.nowoo.app",
-    "version": "1.1.0",
+    "version": "2.1.1",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "automatic",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "icon": "./assets/ios-icon.png",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "bundleIdentifier": "com.nowoo.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -39,7 +39,7 @@
       },
       "icon": "./assets/android-icon.png",
       "package": "com.nowoo.app",
-      "versionCode": 3145747
+      "versionCode": 3145748
     },
     "web": {
       "favicon": "./assets/favicon.png"

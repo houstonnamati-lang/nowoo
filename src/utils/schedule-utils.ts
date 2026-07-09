@@ -22,10 +22,10 @@ export const getActiveScheduleCategory = (
   resetStartTime: string,
   resetEndTime: string,
   restoreStartTime: string,
-  restoreEndTime: string
+  restoreEndTime: string,
+  atDate: Date = new Date()
 ): ScheduleCategory => {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = atDate.getHours() * 60 + atDate.getMinutes();
 
   const riseStart = timeToMinutes(riseStartTime);
   const riseEnd = timeToMinutes(riseEndTime);
